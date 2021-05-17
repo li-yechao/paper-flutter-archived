@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title></title>
+</head>
+<body>
+  <script>
+    window.opener.postMessage({
+      type: 'githubAuthResult',
+      data: window.location.href,
+    }, '*')
+  </script>
+</body>
+</html>
