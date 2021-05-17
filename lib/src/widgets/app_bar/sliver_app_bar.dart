@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:paper/src/bloc/viewer/viewer_bloc.dart';
+import 'package:paper/src/widgets/app_bar/new_button.dart';
 import 'package:paper/src/widgets/app_bar/user_button.dart';
 
 class MySliverAppBar extends StatelessWidget {
@@ -31,6 +32,11 @@ class MySliverAppBar extends StatelessWidget {
           centerTitle: false,
           flexibleSpace: flexibleSpace,
           actions: [
+            if (state.viewer != null)
+              Padding(
+                padding: EdgeInsets.all(4),
+                child: NewButton(),
+              ),
             Padding(
               padding: EdgeInsets.all(4),
               child: UserButton(),

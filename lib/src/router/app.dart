@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:paper/src/screens/auth/auth_screen.dart';
 import 'package:paper/src/screens/home/home_screen.dart';
 import 'package:paper/src/screens/error/error_screen.dart';
+import 'package:paper/src/screens/paper/paper_screen.dart';
 import 'package:provider/provider.dart';
 
 class MyRouterDelegate extends RouterDelegate<MyRouteConfiguration>
@@ -102,6 +103,15 @@ abstract class MyRouteConfiguration {
       MyRouteConfigurationError(error: error, location: location);
 
   static MyRouteConfiguration auth() => MyRouteConfigurationAuth();
+
+  static MyRouteConfiguration paper({
+    required String userId,
+    required String paperId,
+  }) =>
+      MyRouteConfigurationPaper(
+        userId: userId,
+        paperId: paperId,
+      );
 }
 
 class MyRouteConfigurationHome extends MyRouteConfiguration {
@@ -151,6 +161,40 @@ class MyRouteConfigurationAuth extends MyRouteConfiguration {
   @override
   RouteInformation restoreRouteInformation() =>
       RouteInformation(location: '/auth');
+}
+
+class MyRouteConfigurationPaper extends MyRouteConfiguration {
+  final String userId;
+  final String paperId;
+
+  MyRouteConfigurationPaper({
+    required this.userId,
+    required this.paperId,
+  });
+
+  static Future<MyRouteConfigurationPaper?> tryParse(
+    RouteInformation route,
+    Uri uri,
+  ) async {
+    if (uri.pathSegments.length == 4 &&
+        uri.pathSegments[0] == 'u' &&
+        uri.pathSegments[2] == 'p') {
+      return MyRouteConfigurationPaper(
+        userId: uri.pathSegments[1],
+        paperId: uri.pathSegments[3],
+      );
+    }
+  }
+
+  @override
+  Widget screen() => PaperScreen(
+        userId: userId,
+        paperId: paperId,
+      );
+
+  @override
+  RouteInformation restoreRouteInformation() =>
+      RouteInformation(location: '/u/$userId/p/$paperId');
 }
 
 class MyRouteInformationParser
