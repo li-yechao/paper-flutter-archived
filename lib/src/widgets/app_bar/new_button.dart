@@ -5,7 +5,6 @@ import 'package:paper/src/bloc/paper_mutation/paper_mutation_bloc.dart';
 import 'package:paper/src/bloc/type.dart';
 import 'package:paper/src/bloc/viewer/viewer_bloc.dart';
 import 'package:paper/src/router/app.dart';
-import 'package:provider/provider.dart';
 
 class NewButton extends StatelessWidget {
   const NewButton({Key? key}) : super(key: key);
