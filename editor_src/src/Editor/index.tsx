@@ -6,6 +6,7 @@ import { Node, Schema } from 'prosemirror-model'
 import { history, redo, undo } from 'prosemirror-history'
 import { keymap } from 'prosemirror-keymap'
 import { baseKeymap } from 'prosemirror-commands'
+import { dropCursor } from 'prosemirror-dropcursor'
 import { gapCursor } from 'prosemirror-gapcursor'
 import 'prosemirror-gapcursor/style/gapcursor.css'
 import { inputRules, undoInputRule } from 'prosemirror-inputrules'
@@ -19,6 +20,7 @@ import OrderedList from './nodes/OrderedList'
 import BulletList from './nodes/BulletList'
 import ListItem from './nodes/ListItem'
 import CodeBlock from './nodes/CodeBlock'
+import ImageBlock, { ImageBlockOptions } from './nodes/ImageBlock'
 import Link from './marks/Link'
 import Bold from './marks/Bold'
 import Italic from './marks/Italic'
@@ -27,6 +29,7 @@ import Underline from './marks/Underline'
 import Strikethrough from './marks/Strikethrough'
 import TodoList from './nodes/TodoList'
 import TodoItem from './nodes/TodoItem'
+import VideoBlock, { VideoBlockOptions } from './nodes/VideoBlock'
 
 export interface EditorProps {
   className?: string
@@ -34,6 +37,9 @@ export interface EditorProps {
   readOnly?: boolean
   todoItemReadOnly?: boolean
   onChange?: (e: { readonly target: { readonly value: Node } }) => void
+
+  imageBlockOptions?: ImageBlockOptions
+  videoBlockOptions?: VideoBlockOptions
 }
 
 export default class Editor extends React.PureComponent<EditorProps> {
@@ -49,7 +55,8 @@ export default class Editor extends React.PureComponent<EditorProps> {
 
   constructor(props: EditorProps) {
     super(props)
-    this.extensionManager = new ExtensionManager([
+
+    const extensions = [
       new Doc(),
       new Text(),
       new Paragraph(),
@@ -68,7 +75,16 @@ export default class Editor extends React.PureComponent<EditorProps> {
       new Code(),
       new Underline(),
       new Strikethrough(),
-    ])
+    ]
+
+    if (props.imageBlockOptions) {
+      extensions.push(new ImageBlock(props.imageBlockOptions))
+    }
+    if (props.videoBlockOptions) {
+      extensions.push(new VideoBlock(props.videoBlockOptions))
+    }
+
+    this.extensionManager = new ExtensionManager(extensions)
 
     this.schema = new Schema({
       nodes: this.extensionManager.nodeSpecs,
@@ -95,6 +111,7 @@ export default class Editor extends React.PureComponent<EditorProps> {
           Backspace: undoInputRule,
         }),
         gapCursor(),
+        dropCursor({ color: 'currentColor' }),
         keymap(baseKeymap),
         ...this.extensionManager.plugins,
       ],

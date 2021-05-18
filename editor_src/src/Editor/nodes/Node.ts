@@ -20,4 +20,12 @@ export default abstract class Node extends Extension {
   }
 
   component?: React.ComponentType<ComponentViewProps>
+
+  get stopEvent(): boolean {
+    return true
+  }
+
+  get ignoreMutation(): boolean {
+    return true
+  }
 }

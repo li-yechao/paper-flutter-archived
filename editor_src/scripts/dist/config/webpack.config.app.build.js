@@ -9,6 +9,7 @@ const terser_webpack_plugin_1 = __importDefault(require("terser-webpack-plugin")
 const clean_webpack_plugin_1 = require("clean-webpack-plugin");
 const monaco_editor_webpack_plugin_1 = __importDefault(require("monaco-editor-webpack-plugin"));
 const dotenv_webpack_1 = __importDefault(require("dotenv-webpack"));
+const copy_webpack_plugin_1 = __importDefault(require("copy-webpack-plugin"));
 const cwd = process.cwd();
 const dotenvPath = process.env.__DOTENV_PATH__ || undefined;
 const entry = process.env.__WEBPACK_ENTRY__;
@@ -74,6 +75,9 @@ const configuration = {
         }),
         new monaco_editor_webpack_plugin_1.default({
             filename: 'js/[name].worker.js',
+        }),
+        new copy_webpack_plugin_1.default({
+            patterns: [{ from: 'static', to: 'static' }],
         }),
     ],
 };

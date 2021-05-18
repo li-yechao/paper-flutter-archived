@@ -50,10 +50,9 @@ export default class ExtensionManager {
   nodeViews<S extends Schema<any, any>>() {
     return this.nodes.reduce(
       (res, i) => {
-        const { component } = i
-        if (component) {
+        if (i.component) {
           res[i.name] = (node, view, getPos) =>
-            new ComponentView(component, {
+            new ComponentView(i, {
               node,
               view,
               getPos: getPos as any,

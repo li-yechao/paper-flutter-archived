@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
+import 'package:paper/src/common/config.dart';
 import 'package:rxdart/rxdart.dart';
 import 'package:paper/src/extensions/extensions.dart';
 
@@ -65,6 +66,8 @@ class _PaperEditorPlatformState extends State<PaperEditorPlatform> {
         'config': {
           'readOnly': widget.readOnly,
           'todoItemReadOnly': widget.todoItemReadOnly,
+          'ipfsApi': Config.ipfsApi,
+          'ipfsGateway': Config.ipfsGateway,
         }
       },
     });
@@ -82,6 +85,7 @@ class _PaperEditorPlatformState extends State<PaperEditorPlatform> {
     return InAppWebView(
       initialOptions: InAppWebViewGroupOptions(
         crossPlatform: InAppWebViewOptions(transparentBackground: true),
+        ios: IOSInAppWebViewOptions(allowsInlineMediaPlayback: true),
       ),
       initialFile: 'editor/index.html',
       onConsoleMessage: (controller, message) {

@@ -16,4 +16,16 @@ class Config {
     assert(value.isNotEmpty, 'Required env GITHUB_REDIRECT_URI is not present');
     return Uri.parse(value);
   }
+
+  static String get ipfsApi {
+    final uri = const String.fromEnvironment('IPFS_API');
+    assert(uri.isNotEmpty, 'Required env IPFS_API is not present');
+    return uri;
+  }
+
+  static String get ipfsGateway {
+    final uri = const String.fromEnvironment('IPFS_GATEWAY');
+    assert(uri.isNotEmpty, 'Required env IPFS_GATEWAY is not present');
+    return uri;
+  }
 }

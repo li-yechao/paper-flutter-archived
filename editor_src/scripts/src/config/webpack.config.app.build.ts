@@ -5,6 +5,7 @@ import TerserWebpackPlugin from 'terser-webpack-plugin'
 import { CleanWebpackPlugin } from 'clean-webpack-plugin'
 import MonacoWebpackPlugin from 'monaco-editor-webpack-plugin'
 import Dotenv from 'dotenv-webpack'
+import CopyWebpackPlugin from 'copy-webpack-plugin'
 
 const cwd = process.cwd()
 
@@ -74,6 +75,9 @@ const configuration: Configuration = {
     }),
     new MonacoWebpackPlugin({
       filename: 'js/[name].worker.js',
+    }),
+    new CopyWebpackPlugin({
+      patterns: [{ from: 'static', to: 'static' }],
     }),
   ],
 }

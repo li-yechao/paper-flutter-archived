@@ -4,6 +4,7 @@ import 'dart:html';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:paper/src/common/config.dart';
 import 'package:rxdart/rxdart.dart';
 
 class PaperEditorPlatform extends StatefulWidget {
@@ -79,6 +80,8 @@ class _PaperEditorPlatformState extends State<PaperEditorPlatform> {
         'config': {
           'readOnly': widget.readOnly,
           'todoItemReadOnly': widget.todoItemReadOnly,
+          'ipfsApi': Config.ipfsApi,
+          'ipfsGateway': Config.ipfsGateway,
         }
       },
     }, '*');

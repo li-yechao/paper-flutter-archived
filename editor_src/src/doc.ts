@@ -12,6 +12,8 @@ export type Block =
   | { bullet_list: BulletList }
   | { todo_list: TodoList }
   | { code_block: CodeBlock }
+  | { image_block: ImageBlock }
+  | { video_block: VideoBlock }
 
 export type Inline = { text: Text }
 
@@ -38,6 +40,12 @@ function isTodoList(v: Block): v is { todo_list: TodoList } {
 }
 function isCodeBlock(v: Block): v is { code_block: CodeBlock } {
   return (<{ code_block: CodeBlock }>v).code_block !== undefined
+}
+function isImageBlock(v: Block): v is { image_block: ImageBlock } {
+  return (<{ image_block: ImageBlock }>v).image_block !== undefined
+}
+function isVideoBlock(v: Block): v is { video_block: VideoBlock } {
+  return (<{ video_block: VideoBlock }>v).video_block !== undefined
 }
 
 export interface Text {
@@ -92,6 +100,18 @@ export interface CodeBlock {
   content: { text: Text }[]
 }
 
+export interface ImageBlock {
+  src?: string | null
+
+  caption?: string | null
+}
+
+export interface VideoBlock {
+  src?: string | null
+
+  caption?: string | null
+}
+
 export function documentToProsemirrorDoc(doc: Document): { [key: string]: any } {
   return {
     type: 'doc',
@@ -138,6 +158,16 @@ export function documentToProsemirrorDoc(doc: Document): { [key: string]: any } 
           type: 'code_block',
           attrs: { language: node.code_block.language },
           content: parseInlines(node.code_block.content),
+        }
+      } else if (isImageBlock(node)) {
+        return {
+          type: 'image_block',
+          attrs: { src: node.image_block.src, caption: node.image_block.caption },
+        }
+      } else if (isVideoBlock(node)) {
+        return {
+          type: 'video_block',
+          attrs: { src: node.video_block.src, caption: node.video_block.caption },
         }
       } else {
         throw new Error(`Unknown block node ${node}`)
@@ -227,6 +257,22 @@ export function prosemirrorDocToDocument(node: Node): Document {
             code_block: {
               language: node.attrs.language,
               content: parseInlines(node.content),
+            },
+          })
+          break
+        case 'image_block':
+          res.push({
+            image_block: {
+              src: node.attrs.src,
+              caption: node.attrs.caption,
+            },
+          })
+          break
+        case 'video_block':
+          res.push({
+            video_block: {
+              src: node.attrs.src,
+              caption: node.attrs.caption,
             },
           })
           break

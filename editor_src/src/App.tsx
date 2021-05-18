@@ -1,5 +1,5 @@
 import { hot } from 'react-hot-loader/root'
-import React, { useCallback, useEffect, useRef } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef } from 'react'
 import { Node } from 'prosemirror-model'
 import styled from '@emotion/styled'
 import { Box, TextareaAutosize } from '@material-ui/core'
@@ -7,6 +7,7 @@ import { useHotkey } from '@react-hook/hotkey'
 import { useUpdate } from 'react-use'
 import Editor from './Editor'
 import { documentToProsemirrorDoc, prosemirrorDocToDocument } from './doc'
+import { ImageBlockOptions } from './Editor/nodes/ImageBlock'
 
 export type MessageEventData =
   | { type: 'getState' }
@@ -16,12 +17,16 @@ export type MessageEventData =
       data: {
         title?: string
         content?: string
-        config?: {
-          readOnly?: boolean
-          todoItemReadOnly?: boolean
-        }
+        config?: Config
       }
     }
+
+export interface Config {
+  readOnly?: boolean
+  todoItemReadOnly?: boolean
+  ipfsApi?: string
+  ipfsGateway?: string
+}
 
 const postMessage = (data: any) => {
   const inAppWebView = (window as any).flutter_inappwebview
@@ -33,10 +38,11 @@ const postMessage = (data: any) => {
 }
 
 export const App = hot(() => {
+  const editorKey = useRef(0)
   const editor = useRef<Editor>(null)
   const doc = useRef<Node>()
   const title = useRef<string>()
-  const config = useRef<{ readOnly: boolean; todoItemReadOnly: boolean }>()
+  const config = useRef<Config>({})
   const update = useUpdate()
 
   const getState = useCallback(() => {
@@ -61,14 +67,31 @@ export const App = hot(() => {
   useEffect(() => {
     const listener = ({ data }: MessageEvent<MessageEventData>) => {
       if (data.type === 'setState') {
-        title.current = stringOr(data.data.title, '')
-        const content = JSON.parse(stringOr(data.data.content, null) || '[]')
-        doc.current = Node.fromJSON(editor.current!.schema, documentToProsemirrorDoc({ content }))
-        config.current = {
-          readOnly: booleanOr(data.data.config?.readOnly, false),
-          todoItemReadOnly: booleanOr(data.data.config?.todoItemReadOnly, true),
+        // First: Update the editor config.
+        if (typeof data.data.config?.readOnly === 'boolean') {
+          config.current.readOnly = data.data.config.readOnly
         }
+        if (typeof data.data.config?.todoItemReadOnly === 'boolean') {
+          config.current.todoItemReadOnly = data.data.config.todoItemReadOnly
+        }
+        if (typeof data.data.config?.ipfsApi === 'string') {
+          config.current.ipfsApi = data.data.config.ipfsApi
+        }
+        if (typeof data.data.config?.ipfsGateway === 'string') {
+          config.current.ipfsGateway = data.data.config.ipfsGateway
+        }
+
+        editorKey.current += 1
         update()
+
+        // Second: Update the value.
+        setTimeout(() => {
+          title.current = stringOr(data.data.title, '')
+          const content = JSON.parse(stringOr(data.data.content, null) || '[]')
+          doc.current = Node.fromJSON(editor.current!.schema, documentToProsemirrorDoc({ content }))
+
+          update()
+        })
       } else if (data.type === 'getState') {
         postMessage({
           type: 'getState',
@@ -98,8 +121,30 @@ export const App = hot(() => {
     })
   })
 
-  const readOnly = config.current?.readOnly ?? true
-  const todoItemReadOnly = config.current?.todoItemReadOnly ?? true
+  const readOnly = config.current.readOnly ?? true
+  const todoItemReadOnly = config.current.todoItemReadOnly ?? true
+
+  const imageBlockOptions = useMemo<ImageBlockOptions | undefined>(() => {
+    const { ipfsApi, ipfsGateway } = config.current
+    if (!ipfsApi || !ipfsGateway) {
+      return
+    }
+    return {
+      upload: async file => {
+        const form = new FormData()
+        form.append('file', file)
+        const res = await fetch(`${ipfsApi}/api/v0/add`, {
+          method: 'POST',
+          body: form,
+        })
+        const json = await res.json()
+        return json.Hash
+      },
+      getSrc: hash => {
+        return `${ipfsGateway}/ipfs/${hash}`
+      },
+    }
+  }, [config.current.ipfsApi, config.current.ipfsGateway])
 
   return (
     <>
@@ -117,21 +162,20 @@ export const App = hot(() => {
 
         <Box px={2}>
           <_Editor
+            key={editorKey.current}
             readOnly={readOnly}
             todoItemReadOnly={todoItemReadOnly}
             ref={editor}
             value={doc.current}
             onChange={setDoc}
+            imageBlockOptions={imageBlockOptions}
+            videoBlockOptions={imageBlockOptions}
           />
         </Box>
       </Box>
     </>
   )
 })
-
-function booleanOr(v: any, d: boolean) {
-  return typeof v === 'boolean' ? v : d
-}
 
 function stringOr<T>(v: any, d: T) {
   return typeof v === 'string' ? v : d

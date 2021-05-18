@@ -1,28 +1,35 @@
 import React from 'react'
 import ReactDOM from 'react-dom'
 import { EditorView, NodeView } from 'prosemirror-view'
-import { Node } from 'prosemirror-model'
+import { Node as ProsemirrorNode } from 'prosemirror-model'
+import Node from '../nodes/Node'
 
 export interface ComponentViewProps {
-  node: Node
+  node: ProsemirrorNode
   view: EditorView
-  selected: number
+  selected: boolean
   getPos: () => number
 }
 
 export default class ComponentView implements NodeView {
-  component: React.ComponentType<ComponentViewProps>
-  node: Node
+  node: ProsemirrorNode
   view: EditorView
   getPos: () => number
-  selected = 0
+  selected = false
   dom: HTMLElement | null
 
   constructor(
-    component: React.ComponentType<ComponentViewProps>,
-    { node, view, getPos }: { node: Node; view: EditorView; getPos: () => number }
+    private _node: Node,
+    {
+      node,
+      view,
+      getPos,
+    }: {
+      node: ProsemirrorNode
+      view: EditorView
+      getPos: () => number
+    }
   ) {
-    this.component = component
     this.getPos = getPos
     this.node = node
     this.view = view
@@ -34,14 +41,12 @@ export default class ComponentView implements NodeView {
   }
 
   renderElement() {
-    const { component: Component, node, view, selected, getPos } = this
-    ReactDOM.render(
-      <Component node={node} view={view} selected={selected} getPos={getPos} />,
-      this.dom
-    )
+    const { _node, node, view, selected, getPos } = this
+    const C = _node.component!
+    ReactDOM.render(<C node={node} view={view} selected={selected} getPos={getPos} />, this.dom)
   }
 
-  update(node: Node) {
+  update(node: ProsemirrorNode) {
     if (node.type !== this.node.type) {
       return false
     }
@@ -53,21 +58,22 @@ export default class ComponentView implements NodeView {
 
   selectNode() {
     if (this.view.editable) {
-      this.selected += 1
+      this.selected = true
       this.renderElement()
     }
   }
 
-  setSelection() {
-    this.selectNode()
+  deselectNode() {
+    this.selected = false
+    this.renderElement()
   }
 
   stopEvent() {
-    return true
+    return this._node.stopEvent
   }
 
   ignoreMutation() {
-    return true
+    return this._node.ignoreMutation
   }
 
   destroy() {
