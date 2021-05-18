@@ -91,6 +91,7 @@ abstract class MyRouteConfiguration {
     final uri = Uri.parse(route.location ?? '/');
     return await MyRouteConfigurationHome.tryParse(route, uri) ??
         await MyRouteConfigurationAuth.tryParse(route, uri) ??
+        await MyRouteConfigurationPaper.tryParse(route, uri) ??
         MyRouteConfigurationError(
           error: uri.queryParameters['error'] ?? 'Unknown error...',
           location: route.location,
