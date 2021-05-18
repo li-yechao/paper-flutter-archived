@@ -25,7 +25,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
           if (viewer == null) {
             if (state.status == RequestStatus.initial) {
-              return Center(child: CircularProgressIndicator());
+              return Center(child: CupertinoActivityIndicator());
             }
             return CustomScrollView(
               physics: BouncingScrollPhysics(

@@ -28,17 +28,127 @@
 
   <title>Paper</title>
   <link rel="manifest" href="manifest.json">
+
+  <style>
+    html,
+    body {
+      background-color: #fafafa;
+      color: #262626;
+      box-sizing: border-box;
+      margin: 0;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      html,
+      body {
+        background-color: #303030;
+        color: #ffffff;
+      }
+    }
+
+    img.logo {
+      display: block;
+      width: 128px;
+      height: 128px;
+      margin-left: auto;
+      margin-right: auto;
+      margin-top: 10%;
+    }
+
+    div.spinner {
+      position: absolute;
+      left: 0;
+      top: 0;
+      right: 0;
+      bottom: 0;
+      width: 24px;
+      height: 24px;
+      display: block;
+      margin: auto;
+      padding: 10px;
+      border-radius: 10px;
+    }
+
+    div.spinner div {
+      width: 4%;
+      height: 16%;
+      background: rgba(128, 128, 128, .5);
+      position: absolute;
+      left: 48%;
+      top: 42%;
+      opacity: 0;
+      border-radius: 50px;
+      box-shadow: 0 0 3px rgba(0,0,0,0.2);
+      animation: fade 1s linear infinite;
+    }
+
+    @keyframes fade {
+      from {opacity: 1;}
+      to {opacity: 0.25;}
+    }
+
+    div.spinner div.bar1 {
+      transform:rotate(0deg) translate(0, -104%);
+      animation-delay: 0s;
+    }
+
+    div.spinner div.bar2 {
+      transform:rotate(45deg) translate(0, -104%);
+      animation-delay: -0.875s;
+    }
+
+    div.spinner div.bar3 {
+      transform:rotate(90deg) translate(0, -104%);
+      animation-delay: -0.75s;
+    }
+    div.spinner div.bar4 {
+      transform:rotate(135deg) translate(0, -104%);
+      animation-delay: -0.625s;
+    }
+    div.spinner div.bar5 {
+      transform:rotate(180deg) translate(0, -104%);
+      animation-delay: -0.5s;
+    }
+    div.spinner div.bar6 {
+      transform:rotate(225deg) translate(0, -104%);
+      animation-delay: -0.375s;
+    }
+    div.spinner div.bar7 {
+      transform:rotate(270deg) translate(0, -104%);
+      animation-delay: -0.25s;
+    }
+    div.spinner div.bar8 {
+      transform:rotate(315deg) translate(0, -104%);
+      animation-delay: -0.125s;
+    }
+  </style>
 </head>
 <body>
+  <div id="splash">
+    <img class="logo" src="icons/Icon-192.png">
+    <div class="spinner">
+      <div class="bar1"></div>
+      <div class="bar2"></div>
+      <div class="bar3"></div>
+      <div class="bar4"></div>
+      <div class="bar5"></div>
+      <div class="bar6"></div>
+      <div class="bar7"></div>
+      <div class="bar8"></div>
+    </div>
+  </div>
+
   <!-- This script installs service_worker.js to provide PWA functionality to
        application. For more information, see:
        https://developers.google.com/web/fundamentals/primers/service-workers -->
   <script>
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('flutter-first-frame', function () {
-        navigator.serviceWorker.register('flutter_service_worker.js');
-      });
-    }
+    window.addEventListener('flutter-first-frame', function () {
+      document.getElementById('splash').remove()
+
+      if ('serviceWorker' in navigator) {
+          navigator.serviceWorker.register('flutter_service_worker.js');
+      }
+    });
   </script>
   <script src="main.dart.js" type="application/javascript"></script>
 </body>
