@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 
@@ -120,9 +121,7 @@ class __GithubAuthState extends State<_GithubAuth> {
                     AnimatedSwitcher(
                       duration: Duration(milliseconds: 300),
                       child: _isLoading
-                          ? Center(
-                              child: CircularProgressIndicator(),
-                            )
+                          ? Center(child: CupertinoActivityIndicator())
                           : null,
                     ),
                   ],

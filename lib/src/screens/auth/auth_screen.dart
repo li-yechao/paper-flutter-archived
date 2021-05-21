@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:paper/src/auth/auth.dart';
@@ -53,7 +54,7 @@ class _AuthScreenState extends State<AuthScreen> {
         return Scaffold(
           body: Center(
             child: _isLoading || state.status == RequestStatus.initial
-                ? CircularProgressIndicator()
+                ? CupertinoActivityIndicator()
                 : Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [

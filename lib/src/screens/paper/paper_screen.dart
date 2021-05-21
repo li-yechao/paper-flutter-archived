@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
@@ -97,7 +98,7 @@ class PaperView extends StatelessWidget {
                     },
                   )
             : Center(
-                child: CircularProgressIndicator(),
+                child: CupertinoActivityIndicator(),
               ),
       ),
     );
