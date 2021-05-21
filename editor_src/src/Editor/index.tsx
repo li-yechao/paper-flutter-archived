@@ -12,6 +12,7 @@ import 'prosemirror-gapcursor/style/gapcursor.css'
 import { inputRules, undoInputRule } from 'prosemirror-inputrules'
 import ExtensionManager from './lib/ExtensionManager'
 import Doc from './nodes/Doc'
+import Title from './nodes/Title'
 import Paragraph from './nodes/Paragraph'
 import Heading from './nodes/Heading'
 import Text from './nodes/Text'
@@ -59,6 +60,7 @@ export default class Editor extends React.PureComponent<EditorProps> {
     const extensions = [
       new Doc(),
       new Text(),
+      new Title(),
       new Paragraph(),
       new Heading(),
       new Blockquote(),

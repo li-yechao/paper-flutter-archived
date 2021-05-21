@@ -1,6 +1,7 @@
 import { Fragment, Node } from 'prosemirror-model'
 
 export type Document = {
+  title: string
   content: Block[]
 }
 
@@ -115,7 +116,13 @@ export interface VideoBlock {
 export function documentToProsemirrorDoc(doc: Document): { [key: string]: any } {
   return {
     type: 'doc',
-    content: parseBlocks(doc.content),
+    content: [
+      {
+        type: 'title',
+        content: doc.title ? [{ type: 'text', text: doc.title }] : [],
+      },
+      ...parseBlocks(doc.content),
+    ],
   }
 
   function parseBlocks(content: Block[]): any[] {
@@ -225,13 +232,20 @@ export function documentToProsemirrorDoc(doc: Document): { [key: string]: any } 
 }
 
 export function prosemirrorDocToDocument(node: Node): Document {
-  return { content: parseBlocks(node.content) }
+  const title = node.firstChild?.type.name === 'title' ? node.firstChild.textContent : ''
+
+  return {
+    title,
+    content: parseBlocks(node.content),
+  }
 
   function parseBlocks(content: Fragment): Block[] {
     const res: Block[] = []
 
     content.forEach(node => {
       switch (node.type.name) {
+        case 'title':
+          break
         case 'heading':
           res.push({
             heading: { level: node.attrs.level, content: parseInlines(node.content) },

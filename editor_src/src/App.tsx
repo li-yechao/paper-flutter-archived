@@ -2,7 +2,7 @@ import { hot } from 'react-hot-loader/root'
 import React, { useCallback, useEffect, useMemo, useRef } from 'react'
 import { Node } from 'prosemirror-model'
 import styled from '@emotion/styled'
-import { Box, TextareaAutosize } from '@material-ui/core'
+import { Box } from '@material-ui/core'
 import { useHotkey } from '@react-hook/hotkey'
 import { useUpdate } from 'react-use'
 import Editor from './Editor'
@@ -32,7 +32,7 @@ const postMessage = (data: any) => {
   const inAppWebView = (window as any).flutter_inappwebview
   if (typeof inAppWebView !== 'undefined') {
     inAppWebView.callHandler('postMessage', data)
-  } else {
+  } else if (window.parent !== window) {
     window.parent.postMessage(data, '*')
   }
 }
@@ -41,21 +41,18 @@ export const App = hot(() => {
   const editorKey = useRef(0)
   const editor = useRef<Editor>(null)
   const doc = useRef<Node>()
-  const title = useRef<string>()
   const config = useRef<Config>({})
   const update = useUpdate()
 
   const getState = useCallback(() => {
-    return {
-      title: title.current,
-      content: doc.current && JSON.stringify(prosemirrorDocToDocument(doc.current).content),
+    if (!doc.current) {
+      return
     }
-  }, [])
-
-  const setTitle = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    title.current = e.target.value
-    update()
-    postMessage({ type: 'stateChange' })
+    const { title, content } = prosemirrorDocToDocument(doc.current)
+    return {
+      title,
+      content: JSON.stringify(content),
+    }
   }, [])
 
   const setDoc = useCallback((e: { readonly target: { readonly value: Node<any> } }) => {
@@ -86,22 +83,25 @@ export const App = hot(() => {
 
         // Second: Update the value.
         setTimeout(() => {
-          title.current = stringOr(data.data.title, '')
           const content = JSON.parse(stringOr(data.data.content, null) || '[]')
-          doc.current = Node.fromJSON(editor.current!.schema, documentToProsemirrorDoc({ content }))
+          if (editor.current) {
+            doc.current = Node.fromJSON(
+              editor.current.schema,
+              documentToProsemirrorDoc({
+                title: stringOr(data.data.title, ''),
+                content,
+              })
+            )
+          }
 
           update()
         })
       } else if (data.type === 'getState') {
-        postMessage({
-          type: 'getState',
-          data: getState(),
-        })
+        const data = getState()
+        data && postMessage({ type: 'getState', data: getState() })
       } else if (data.type === 'saveState') {
-        postMessage({
-          type: 'saveState',
-          data: getState(),
-        })
+        const data = getState()
+        data && postMessage({ type: 'saveState', data })
       }
     }
 
@@ -115,10 +115,8 @@ export const App = hot(() => {
 
   useHotkey(window, ['mod', 's'], e => {
     e.preventDefault()
-    postMessage({
-      type: 'saveState',
-      data: getState(),
-    })
+    const data = getState()
+    data && postMessage({ type: 'saveState', data })
   })
 
   const readOnly = config.current.readOnly ?? true
@@ -147,56 +145,24 @@ export const App = hot(() => {
   }, [config.current.ipfsApi, config.current.ipfsGateway])
 
   return (
-    <>
-      <Box pt={2}>
-        <Box px={2}>
-          <_TitleInput
-            readOnly={readOnly}
-            autoFocus
-            placeholder="Untitled"
-            maxLength={100}
-            value={title.current}
-            onChange={setTitle}
-          />
-        </Box>
-
-        <Box px={2}>
-          <_Editor
-            key={editorKey.current}
-            readOnly={readOnly}
-            todoItemReadOnly={todoItemReadOnly}
-            ref={editor}
-            value={doc.current}
-            onChange={setDoc}
-            imageBlockOptions={imageBlockOptions}
-            videoBlockOptions={imageBlockOptions}
-          />
-        </Box>
-      </Box>
-    </>
+    <Box p={1}>
+      <_Editor
+        key={editorKey.current}
+        readOnly={readOnly}
+        todoItemReadOnly={todoItemReadOnly}
+        ref={editor}
+        value={doc.current}
+        onChange={setDoc}
+        imageBlockOptions={imageBlockOptions}
+        videoBlockOptions={imageBlockOptions}
+      />
+    </Box>
   )
 })
 
 function stringOr<T>(v: any, d: T) {
   return typeof v === 'string' ? v : d
 }
-
-const _TitleInput = styled(TextareaAutosize)`
-  font-family: 'Chinese Quote', 'Segoe UI', Roboto, 'PingFang SC', 'Hiragino Sans GB',
-    'Microsoft YaHei', 'Helvetica Neue', Helvetica, Arial, sans-serif, 'Apple Color Emoji';
-  border: none;
-  outline: none;
-  resize: none;
-  line-height: 1.389;
-  width: 100%;
-  min-height: 32px;
-  font-weight: 700;
-  font-size: 36px;
-  background-color: transparent;
-  color: inherit;
-  padding-left: 0;
-  padding-right: 0;
-`
 
 const _Editor = styled(Editor)`
   .ProseMirror {

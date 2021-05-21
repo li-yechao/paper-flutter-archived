@@ -8,7 +8,7 @@ export default class Doc extends Node {
 
   get schema(): NodeSpec {
     return {
-      content: 'block+',
+      content: 'title block+',
     }
   }
 }
