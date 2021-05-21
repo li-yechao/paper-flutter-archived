@@ -2,7 +2,6 @@ import { hot } from 'react-hot-loader/root'
 import React, { useCallback, useEffect, useMemo, useRef } from 'react'
 import { Node } from 'prosemirror-model'
 import styled from '@emotion/styled'
-import { Box } from '@material-ui/core'
 import { useHotkey } from '@react-hook/hotkey'
 import { useUpdate } from 'react-use'
 import Editor from './Editor'
@@ -145,18 +144,16 @@ export const App = hot(() => {
   }, [config.current.ipfsApi, config.current.ipfsGateway])
 
   return (
-    <Box p={1}>
-      <_Editor
-        key={editorKey.current}
-        readOnly={readOnly}
-        todoItemReadOnly={todoItemReadOnly}
-        ref={editor}
-        value={doc.current}
-        onChange={setDoc}
-        imageBlockOptions={imageBlockOptions}
-        videoBlockOptions={imageBlockOptions}
-      />
-    </Box>
+    <_Editor
+      key={editorKey.current}
+      readOnly={readOnly}
+      todoItemReadOnly={todoItemReadOnly}
+      ref={editor}
+      value={doc.current}
+      onChange={setDoc}
+      imageBlockOptions={imageBlockOptions}
+      videoBlockOptions={imageBlockOptions}
+    />
   )
 })
 
@@ -166,7 +163,10 @@ function stringOr<T>(v: any, d: T) {
 
 const _Editor = styled(Editor)`
   .ProseMirror {
-    min-height: 60vh;
-    padding-bottom: 200px;
+    min-height: 100vh;
+    padding: 8px;
+    padding-bottom: 100px;
+    max-width: 800px;
+    margin: auto;
   }
 `
