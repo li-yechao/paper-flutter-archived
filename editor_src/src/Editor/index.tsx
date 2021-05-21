@@ -11,6 +11,7 @@ import { gapCursor } from 'prosemirror-gapcursor'
 import 'prosemirror-gapcursor/style/gapcursor.css'
 import { inputRules, undoInputRule } from 'prosemirror-inputrules'
 import ExtensionManager from './lib/ExtensionManager'
+import Placeholder from './decorations/Placeholder'
 import Doc from './nodes/Doc'
 import Title from './nodes/Title'
 import Paragraph from './nodes/Paragraph'
@@ -58,6 +59,8 @@ export default class Editor extends React.PureComponent<EditorProps> {
     super(props)
 
     const extensions = [
+      new Placeholder(),
+
       new Doc(),
       new Text(),
       new Title(),
@@ -329,5 +332,19 @@ const _EditorContainer = styled.div`
       text-decoration: none;
       color: #1890ff;
     }
+  }
+
+  .ProseMirror-placeholder {
+    &:after {
+      position: absolute;
+      color: #999;
+      pointer-events: none;
+      content: attr(data-placeholder);
+    }
+  }
+
+  h1.title {
+    margin-top: 8px;
+    margin-bottom: 32px;
   }
 `
