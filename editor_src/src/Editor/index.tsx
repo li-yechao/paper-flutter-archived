@@ -250,7 +250,7 @@ const _EditorContainer = styled.div`
 
   ul,
   ol {
-    margin: 0 0 0 3px;
+    margin: 8px 0 5px 0;
     padding: 0;
 
     li {
