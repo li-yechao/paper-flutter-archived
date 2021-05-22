@@ -154,7 +154,7 @@ export default class Editor extends React.PureComponent<EditorProps> {
     const {
       state: { tr, doc },
     } = this.view
-    const hasTitle = !!doc.firstChild?.textContent.length
+    const hasTitle = doc.firstChild?.textContent.trim().length
     if (hasTitle) {
       this.view.dispatch(tr.setSelection(TextSelection.create(doc, doc.content.size)))
     }
