@@ -252,6 +252,7 @@ const _EditorContainer = styled.div`
           width: 14px;
           height: 14px;
           line-height: 14px;
+          vertical-align: text-bottom;
         }
       }
 
