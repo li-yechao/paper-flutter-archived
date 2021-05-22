@@ -1,14 +1,13 @@
 import styled from '@emotion/styled'
 import { createFFmpeg } from '@ffmpeg/ffmpeg'
-import { TextareaAutosize } from '@material-ui/core'
 import PlayArrowRoundedIcon from '@material-ui/icons/PlayArrowRounded'
 import PauseRoundedIcon from '@material-ui/icons/PauseRounded'
 import { NodeSpec } from 'prosemirror-model'
 import React, { useEffect, useRef, useState } from 'react'
-import { useToggle, useUpdate } from 'react-use'
-import CupertinoActivityIndicator from '../../components/CupertinoActivityIndicator'
+import { useToggle } from 'react-use'
 import { ComponentViewProps } from '../lib/ComponentView'
 import Node from './Node'
+import { FigureView } from '../lib/FigureView'
 
 export interface VideoBlockOptions {
   upload: (file: File) => Promise<string>
@@ -63,18 +62,9 @@ export default class VideoBlock extends Node {
 
   component = ({ node, view, selected, getPos }: ComponentViewProps) => {
     const player = useRef<HTMLVideoElement>(null)
-    const [playing, togglePlaying] = useToggle(false)
+    const [playing, togglePlaying] = useToggle(true)
     const [src, setSrc] = useState<string | null>()
-    const [uploading, setUploading] = useState(false)
-    const update = useUpdate()
-
-    // Fix TextAreaAutoSize not visible.
-    useEffect(() => {
-      setTimeout(() => {
-        update()
-        togglePlaying(true)
-      })
-    }, [])
+    const [loading, setLoading] = useState(false)
 
     useEffect(() => {
       ;(async () => {
@@ -90,7 +80,7 @@ export default class VideoBlock extends Node {
         return
       }
       ;(async () => {
-        setUploading(true)
+        setLoading(true)
 
         if (file.type !== 'video/mp4') {
           const ffmpeg = createFFmpeg({
@@ -116,17 +106,10 @@ export default class VideoBlock extends Node {
             })
           )
         } finally {
-          setUploading(false)
+          setLoading(false)
         }
       })()
     }, [])
-
-    const focusCaption = (e: React.MouseEvent | React.TouchEvent) => {
-      e.stopPropagation()
-      this._stopEvent = true
-    }
-
-    const blurCaption = () => (this._stopEvent = false)
 
     const handleCaptionChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
       view.dispatch(
@@ -146,93 +129,39 @@ export default class VideoBlock extends Node {
     }
 
     return (
-      <_Figure selected={selected} onMouseDown={blurCaption} onTouchStart={blurCaption}>
-        <_FigureContent>
-          {uploading && (
-            <_Loading>
-              <_CupertinoActivityIndicator />
-            </_Loading>
-          )}
+      <FigureView
+        selected={selected}
+        readOnly={!view.editable}
+        caption={node.attrs.caption}
+        loading={loading}
+        onCaptionChange={handleCaptionChange}
+        toggleStopEvent={e => (this._stopEvent = e)}
+      >
+        <_Content>
+          <video
+            ref={player}
+            muted
+            autoPlay={playing}
+            playsInline
+            src={src || undefined}
+            onEnded={() => togglePlaying(false)}
+            onPause={() => togglePlaying(false)}
+            onPlay={() => togglePlaying(true)}
+          />
 
-          <_VideoWrapper>
-            <video
-              ref={player}
-              muted
-              autoPlay={playing}
-              playsInline
-              src={src || undefined}
-              onEnded={() => togglePlaying(false)}
-              onPause={() => togglePlaying(false)}
-              onPlay={() => togglePlaying(true)}
-            />
-            <_PlayButton onMouseUp={playPause} onTouchEnd={playPause}>
-              {playing ? <PauseRoundedIcon /> : <PlayArrowRoundedIcon />}
-            </_PlayButton>
-          </_VideoWrapper>
-        </_FigureContent>
-        <figcaption>
-          {view.editable ? (
-            <CaptionInput
-              value={node.attrs.caption}
-              onFocus={blurCaption}
-              onBlurCapture={blurCaption}
-              onMouseUp={focusCaption}
-              onTouchEnd={focusCaption}
-              onChange={handleCaptionChange}
-            />
-          ) : (
-            node.attrs.caption
-          )}
-        </figcaption>
-      </_Figure>
+          <_PlayButton onMouseUp={playPause} onTouchEnd={playPause}>
+            {playing ? <PauseRoundedIcon /> : <PlayArrowRoundedIcon />}
+          </_PlayButton>
+        </_Content>
+      </FigureView>
     )
   }
 }
 
-const _Loading = styled.div`
-  position: absolute;
-  left: 0;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  margin: auto;
-  z-index: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background-color: rgba(128, 128, 128, 0.5);
-`
-
-const _CupertinoActivityIndicator = styled(CupertinoActivityIndicator)`
-  width: 56px;
-  height: 56px;
-  color: currentColor;
-`
-
-const _Figure = styled.figure<{ selected: boolean }>`
-  outline: 0px solid currentColor;
-  outline-style: dotted;
-  outline-width: ${props => (props.selected ? '1px' : 0)};
-  margin: 10px 0;
-
-  > figcaption {
-    display: block;
-    position: relative;
-    text-align: center;
-    margin-top: 8px;
-  }
-`
-
-const _FigureContent = styled.div`
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-`
-
-const _VideoWrapper = styled.div`
+const _Content = styled.div`
   position: relative;
   display: inline-block;
+  width: 100%;
 
   > video {
     vertical-align: middle;
@@ -259,22 +188,4 @@ const _PlayButton = styled.button`
   &:hover {
     opacity: 0.8;
   }
-`
-
-const CaptionInput = styled(TextareaAutosize)`
-  display: block;
-  border: none;
-  outline: none;
-  background-color: transparent;
-  width: 100%;
-  text-align: center;
-  color: inherit;
-  font-size: inherit;
-  letter-spacing: inherit;
-  font-weight: inherit;
-  font-family: inherit;
-  line-height: inherit;
-  resize: none;
-  padding: 0;
-  margin: 0;
 `

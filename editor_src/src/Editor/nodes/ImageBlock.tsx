@@ -1,10 +1,8 @@
 import styled from '@emotion/styled'
-import { TextareaAutosize } from '@material-ui/core'
 import { NodeSpec } from 'prosemirror-model'
 import React, { useEffect, useState } from 'react'
-import { useUpdate } from 'react-use'
-import CupertinoActivityIndicator from '../../components/CupertinoActivityIndicator'
 import { ComponentViewProps } from '../lib/ComponentView'
+import { FigureView } from '../lib/FigureView'
 import Node from './Node'
 
 export interface ImageBlockOptions {
@@ -60,13 +58,7 @@ export default class ImageBlock extends Node {
 
   component = ({ node, view, selected, getPos }: ComponentViewProps) => {
     const [src, setSrc] = useState<string | null>()
-    const [uploading, setUploading] = useState(false)
-    const update = useUpdate()
-
-    // Fix TextAreaAutoSize not visible.
-    useEffect(() => {
-      setTimeout(update)
-    }, [])
+    const [loading, setLoading] = useState(false)
 
     useEffect(() => {
       ;(async () => {
@@ -83,23 +75,16 @@ export default class ImageBlock extends Node {
       }
       setSrc(URL.createObjectURL(file))
       ;(async () => {
-        setUploading(true)
+        setLoading(true)
         try {
           const src = await this.options.upload(file)
           setSrc(await this.options.getSrc(src))
           view.dispatch(view.state.tr.setNodeMarkup(getPos(), node.type, { ...node.attrs, src }))
         } finally {
-          setUploading(false)
+          setLoading(false)
         }
       })()
     }, [])
-
-    const focusCaption = (e: React.MouseEvent | React.TouchEvent) => {
-      e.stopPropagation()
-      this._stopEvent = true
-    }
-
-    const blurCaption = () => (this._stopEvent = false)
 
     const handleCaptionChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
       view.dispatch(
@@ -108,79 +93,23 @@ export default class ImageBlock extends Node {
     }
 
     return (
-      <Figure selected={selected} onMouseDown={blurCaption} onTouchStart={blurCaption}>
-        <_FigureContent>
-          {uploading && (
-            <_Loading>
-              <_CupertinoActivityIndicator />
-            </_Loading>
-          )}
-
-          <_ImageWrapper>
-            <img src={src || undefined} />
-          </_ImageWrapper>
-        </_FigureContent>
-        <figcaption>
-          {view.editable ? (
-            <CaptionInput
-              value={node.attrs.caption}
-              onFocus={blurCaption}
-              onBlurCapture={blurCaption}
-              onMouseUp={focusCaption}
-              onTouchEnd={focusCaption}
-              onChange={handleCaptionChange}
-            />
-          ) : (
-            node.attrs.caption
-          )}
-        </figcaption>
-      </Figure>
+      <FigureView
+        selected={selected}
+        readOnly={!view.editable}
+        caption={node.attrs.caption}
+        loading={loading}
+        onCaptionChange={handleCaptionChange}
+        toggleStopEvent={e => (this._stopEvent = e)}
+      >
+        <_Content>
+          <img src={src || undefined} />
+        </_Content>
+      </FigureView>
     )
   }
 }
 
-const _Loading = styled.div`
-  position: absolute;
-  left: 0;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  margin: auto;
-  z-index: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background-color: rgba(128, 128, 128, 0.5);
-`
-
-const _CupertinoActivityIndicator = styled(CupertinoActivityIndicator)`
-  width: 56px;
-  height: 56px;
-  color: currentColor;
-`
-
-const Figure = styled.figure<{ selected: boolean }>`
-  outline: 0px solid currentColor;
-  outline-style: dotted;
-  outline-width: ${props => (props.selected ? '1px' : 0)};
-  margin: 10px 0;
-
-  > figcaption {
-    display: block;
-    position: relative;
-    text-align: center;
-    margin-top: 8px;
-  }
-`
-
-const _FigureContent = styled.div`
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-`
-
-const _ImageWrapper = styled.div`
+const _Content = styled.div`
   position: relative;
   display: inline-block;
 
@@ -189,23 +118,4 @@ const _ImageWrapper = styled.div`
     object-fit: contain;
     max-width: 100%;
   }
-`
-
-const CaptionInput = styled(TextareaAutosize)`
-  display: block;
-  border: none;
-  outline: none;
-  background-color: transparent;
-  width: 100%;
-  min-width: 0;
-  text-align: center;
-  color: inherit;
-  font-size: inherit;
-  letter-spacing: inherit;
-  font-weight: inherit;
-  font-family: inherit;
-  line-height: inherit;
-  resize: none;
-  padding: 0;
-  margin: 0;
 `
