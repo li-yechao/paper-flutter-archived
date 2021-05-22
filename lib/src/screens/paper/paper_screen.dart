@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import 'package:paper/src/bloc/paper/paper_bloc.dart';
 import 'package:paper/src/bloc/paper_mutation/paper_mutation_bloc.dart';
 import 'package:paper/src/bloc/type.dart';
+import 'package:paper/src/extensions/extensions.dart';
 import 'package:paper/src/graphql/client.dart';
 
 import 'paper_editor.dart';
@@ -52,7 +53,7 @@ class PaperView extends StatelessWidget {
           title: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(paperState.paper?.title ?? 'Untitled'),
+              Text((paperState.paper?.title).blankOr('Untitled')),
               if (paperState.paper != null)
                 Row(
                   children: [

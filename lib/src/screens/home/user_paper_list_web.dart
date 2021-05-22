@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:paper/src/bloc/paper_mutation/paper_mutation_bloc.dart';
 import 'package:paper/src/bloc/type.dart';
 import 'package:paper/src/bloc/user_papers/user_papers_bloc.dart';
+import 'package:paper/src/extensions/extensions.dart';
 import 'package:paper/src/router/app.dart';
 import 'package:paper/src/widgets/hover/hover.dart';
 import 'package:paper/src/widgets/list_footer/list_footer.dart';
@@ -64,9 +65,7 @@ class PaperItem extends StatelessWidget {
           return Container(
             constraints: BoxConstraints(maxWidth: 800),
             child: ListTile(
-              title: Text(
-                paper.title?.isNotEmpty == true ? paper.title! : 'Untitled',
-              ),
+              title: Text(paper.title.blankOr('Untitled')),
               subtitle: Text(
                 DateFormat().format(
                   DateTime.fromMillisecondsSinceEpoch(
