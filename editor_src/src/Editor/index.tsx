@@ -1,6 +1,6 @@
 import React, { createRef } from 'react'
 import styled from '@emotion/styled'
-import { EditorState } from 'prosemirror-state'
+import { EditorState, TextSelection } from 'prosemirror-state'
 import { EditorView } from 'prosemirror-view'
 import { Node, Schema } from 'prosemirror-model'
 import { history, redo, undo } from 'prosemirror-history'
@@ -37,6 +37,7 @@ export interface EditorProps {
   className?: string
   value?: Node
   readOnly?: boolean
+  autoFocus?: boolean
   todoItemReadOnly?: boolean
   onChange?: (e: { readonly target: { readonly value: Node } }) => void
 
@@ -131,6 +132,7 @@ export default class Editor extends React.PureComponent<EditorProps> {
       },
     })
     this.view = view
+    this.props.autoFocus && this.focus()
   }
 
   componentDidUpdate(prevProps: EditorProps) {
@@ -141,7 +143,22 @@ export default class Editor extends React.PureComponent<EditorProps> {
     ) {
       const { schema, plugins } = this.view.state
       this.view.updateState(EditorState.create({ schema, plugins, doc: this.props.value }))
+      this.props.autoFocus && this.focus()
     }
+  }
+
+  focus() {
+    if (!this.view) {
+      return
+    }
+    const {
+      state: { tr, doc },
+    } = this.view
+    const hasTitle = !!doc.firstChild?.textContent.length
+    if (hasTitle) {
+      this.view.dispatch(tr.setSelection(TextSelection.create(doc, doc.content.size)))
+    }
+    this.view.focus()
   }
 
   render() {

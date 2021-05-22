@@ -147,6 +147,7 @@ export const App = hot(() => {
     <_Editor
       key={editorKey.current}
       readOnly={readOnly}
+      autoFocus
       todoItemReadOnly={todoItemReadOnly}
       ref={editor}
       value={doc.current}
