@@ -4,7 +4,6 @@ import { TextareaAutosize } from '@material-ui/core'
 import PlayArrowRoundedIcon from '@material-ui/icons/PlayArrowRounded'
 import PauseRoundedIcon from '@material-ui/icons/PauseRounded'
 import { NodeSpec } from 'prosemirror-model'
-import { Plugin } from 'prosemirror-state'
 import React, { useEffect, useRef, useState } from 'react'
 import { useToggle, useUpdate } from 'react-use'
 import CupertinoActivityIndicator from '../../components/CupertinoActivityIndicator'
@@ -55,42 +54,6 @@ export default class VideoBlock extends Node {
         ]
       },
     }
-  }
-
-  get plugins(): Plugin[] {
-    return [
-      new Plugin({
-        props: {
-          handleDOMEvents: {
-            drop: (view, event) => {
-              const files = Array.from(event.dataTransfer?.files ?? []).filter(i =>
-                i.type.startsWith('video/')
-              )
-              const pos = view.posAtCoords({ left: event.clientX, top: event.clientY })
-              if (files?.length && pos) {
-                event.preventDefault()
-                view.dispatch(
-                  view.state.tr.replaceWith(
-                    pos.pos,
-                    pos.pos,
-                    files.map(file => {
-                      const node = view.state.schema.nodes[this.name].create({
-                        src: null,
-                        caption: file.name,
-                      })
-                      node.file = file
-                      return node
-                    })
-                  )
-                )
-                return true
-              }
-              return false
-            },
-          },
-        },
-      }),
-    ]
   }
 
   _stopEvent = false

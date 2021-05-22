@@ -10,8 +10,10 @@ import { dropCursor } from 'prosemirror-dropcursor'
 import { gapCursor } from 'prosemirror-gapcursor'
 import 'prosemirror-gapcursor/style/gapcursor.css'
 import { inputRules, undoInputRule } from 'prosemirror-inputrules'
+import { notEmpty } from '../utils/array'
 import ExtensionManager from './lib/ExtensionManager'
 import Placeholder from './decorations/Placeholder'
+import DropPasteFile from './plugins/DropPasteFile'
 import Doc from './nodes/Doc'
 import Title from './nodes/Title'
 import Paragraph from './nodes/Paragraph'
@@ -59,6 +61,29 @@ export default class Editor extends React.PureComponent<EditorProps> {
   constructor(props: EditorProps) {
     super(props)
 
+    const imageBlock = props.imageBlockOptions && new ImageBlock(props.imageBlockOptions)
+    const videoBlock = props.videoBlockOptions && new VideoBlock(props.videoBlockOptions)
+    const dropPasteFile = new DropPasteFile({
+      fileToNode: (view, file) => {
+        if (imageBlock && file.type.startsWith('image/')) {
+          const node = view.state.schema.nodes[imageBlock.name].create({
+            src: null,
+            caption: file.name,
+          })
+          node.file = file
+          return node
+        } else if (videoBlock && file.type.startsWith('video/')) {
+          const node = view.state.schema.nodes[videoBlock.name].create({
+            src: null,
+            caption: file.name,
+          })
+          node.file = file
+          return node
+        }
+        return
+      },
+    })
+
     const extensions = [
       new Placeholder(),
 
@@ -81,16 +106,13 @@ export default class Editor extends React.PureComponent<EditorProps> {
       new Code(),
       new Underline(),
       new Strikethrough(),
+
+      imageBlock,
+      videoBlock,
+      dropPasteFile,
     ]
 
-    if (props.imageBlockOptions) {
-      extensions.push(new ImageBlock(props.imageBlockOptions))
-    }
-    if (props.videoBlockOptions) {
-      extensions.push(new VideoBlock(props.videoBlockOptions))
-    }
-
-    this.extensionManager = new ExtensionManager(extensions)
+    this.extensionManager = new ExtensionManager(extensions.filter(notEmpty))
 
     this.schema = new Schema({
       nodes: this.extensionManager.nodeSpecs,

@@ -1,7 +1,6 @@
 import styled from '@emotion/styled'
 import { TextareaAutosize } from '@material-ui/core'
 import { NodeSpec } from 'prosemirror-model'
-import { Plugin } from 'prosemirror-state'
 import React, { useEffect, useState } from 'react'
 import { useUpdate } from 'react-use'
 import CupertinoActivityIndicator from '../../components/CupertinoActivityIndicator'
@@ -52,67 +51,6 @@ export default class ImageBlock extends Node {
         ]
       },
     }
-  }
-
-  get plugins(): Plugin[] {
-    return [
-      new Plugin({
-        props: {
-          handleDOMEvents: {
-            paste: (view, event) => {
-              const files = Array.from(event.clipboardData?.files ?? []).filter(i =>
-                i.type.startsWith('image/')
-              )
-              if (files?.length) {
-                event.preventDefault()
-                view.dispatch(
-                  view.state.tr.replaceWith(
-                    view.state.selection.from,
-                    view.state.selection.to,
-                    files.map(file => {
-                      const node = view.state.schema.nodes[this.name].create({
-                        src: null,
-                        caption: file.name,
-                      })
-                      node.file = file
-                      return node
-                    })
-                  )
-                )
-
-                return true
-              }
-              return false
-            },
-            drop: (view, event) => {
-              const files = Array.from(event.dataTransfer?.files ?? []).filter(i =>
-                i.type.startsWith('image/')
-              )
-              const pos = view.posAtCoords({ left: event.clientX, top: event.clientY })
-              if (files?.length && pos) {
-                event.preventDefault()
-                view.dispatch(
-                  view.state.tr.replaceWith(
-                    pos.pos,
-                    pos.pos,
-                    files.map(file => {
-                      const node = view.state.schema.nodes[this.name].create({
-                        src: null,
-                        caption: file.name,
-                      })
-                      node.file = file
-                      return node
-                    })
-                  )
-                )
-                return true
-              }
-              return false
-            },
-          },
-        },
-      }),
-    ]
   }
 
   _stopEvent = false
