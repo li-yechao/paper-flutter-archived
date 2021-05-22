@@ -143,7 +143,10 @@
        https://developers.google.com/web/fundamentals/primers/service-workers -->
   <script>
     window.addEventListener('flutter-first-frame', function () {
-      document.getElementById('splash').remove()
+      var splash = document.getElementById('splash')
+      if (splash) {
+        splash.remove();
+      }
 
       if ('serviceWorker' in navigator) {
           navigator.serviceWorker.register('flutter_service_worker.js');
