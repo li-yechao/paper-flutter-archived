@@ -150,7 +150,9 @@ export default class Editor extends React.PureComponent<EditorProps> {
       nodeViews: this.extensionManager.nodeViews(),
       dispatchTransaction: tr => {
         view.updateState(view.state.apply(tr))
-        this.props.onChange?.({ target: { value: view.state.doc } })
+        if (tr.docChanged) {
+          this.props.onChange?.({ target: { value: view.state.doc } })
+        }
       },
     })
     this.view = view
