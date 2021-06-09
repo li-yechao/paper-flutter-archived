@@ -1,11 +1,12 @@
-import React, { useCallback, useEffect, useRef } from 'react'
-import { InputRule, textblockTypeInputRule } from 'prosemirror-inputrules'
-import { NodeSpec, NodeType } from 'prosemirror-model'
 import styled from '@emotion/styled'
-import Node from './Node'
-import { ComponentViewProps } from '../lib/ComponentView'
 import { editor } from 'monaco-editor'
+import { InputRule, textblockTypeInputRule } from 'prosemirror-inputrules'
+import { Node as ProsemirrorNode, NodeSpec, NodeType } from 'prosemirror-model'
+import { EditorView } from 'prosemirror-view'
+import { useRef, useEffect, useCallback } from 'react'
+import ReactDOM from 'react-dom'
 import { useUpdate } from 'react-use'
+import Node, { NodeViewCreator } from './Node'
 
 export default class CodeBlock extends Node {
   get name(): string {
@@ -48,10 +49,59 @@ export default class CodeBlock extends Node {
     ]
   }
 
+  get nodeView(): NodeViewCreator {
+    return ({ node, view, getPos }) => {
+      const dom = document.createElement('div')
+      let selected = false
+      const render = () => {
+        const C = this.component
+        ReactDOM.render(<C node={node} view={view} selected={selected} getPos={getPos} />, dom)
+      }
+      render()
+
+      return {
+        dom,
+        update: updatedNode => {
+          if (updatedNode.type !== node.type) {
+            return false
+          }
+          node = updatedNode
+          render()
+          return true
+        },
+        selectNode: () => {
+          if (view.editable) {
+            selected = true
+            render()
+          }
+        },
+        deselectNode: () => {
+          selected = false
+          render()
+        },
+        stopEvent: () => true,
+        ignoreMutation: () => true,
+        destroy: () => {
+          ReactDOM.unmountComponentAtNode(dom)
+        },
+      }
+    }
+  }
+
   component = MonacoEditor
 }
 
-const MonacoEditor = ({ node, view, selected, getPos }: ComponentViewProps) => {
+const MonacoEditor = ({
+  node,
+  view,
+  selected,
+  getPos,
+}: {
+  node: ProsemirrorNode
+  view: EditorView
+  selected: boolean
+  getPos: boolean | (() => number)
+}) => {
   const editorContainer = useRef<HTMLDivElement>(null)
   const MonacoEditor = useRef<typeof editor>()
   const monacoEditor = useRef<editor.IStandaloneCodeEditor>()
@@ -90,16 +140,18 @@ const MonacoEditor = ({ node, view, selected, getPos }: ComponentViewProps) => {
       }
       editor.onDidContentSizeChange(updateHeight)
       editor.onDidChangeModelContent(({ changes }) => {
-        const start = getPos() + 1
-        let tr = view.state.tr
-        for (const change of changes) {
-          tr = tr.replaceWith(
-            start + change.rangeOffset,
-            start + change.rangeOffset + change.rangeLength,
-            change.text ? view.state.schema.text(change.text) : (null as any)
-          )
+        if (typeof getPos === 'function') {
+          const start = getPos() + 1
+          let tr = view.state.tr
+          for (const change of changes) {
+            tr = tr.replaceWith(
+              start + change.rangeOffset,
+              start + change.rangeOffset + change.rangeLength,
+              change.text ? view.state.schema.text(change.text) : (null as any)
+            )
+          }
+          view.dispatch(tr)
         }
-        view.dispatch(tr)
       })
       updateHeight()
 
@@ -132,11 +184,13 @@ const MonacoEditor = ({ node, view, selected, getPos }: ComponentViewProps) => {
   }, [language])
 
   const handleLanguageChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
-    view.dispatch(
-      view.state.tr.setNodeMarkup(getPos(), undefined, {
-        language: e.target.value,
-      })
-    )
+    if (typeof getPos === 'function') {
+      view.dispatch(
+        view.state.tr.setNodeMarkup(getPos(), undefined, {
+          language: e.target.value,
+        })
+      )
+    }
   }, [])
 
   return (

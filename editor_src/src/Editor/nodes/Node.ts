@@ -1,8 +1,14 @@
 import { Keymap } from 'prosemirror-commands'
 import { InputRule } from 'prosemirror-inputrules'
-import { NodeSpec, NodeType, Schema } from 'prosemirror-model'
-import { ComponentViewProps } from '../lib/ComponentView'
+import { NodeSpec, Node as ProsemirrorNode, NodeType, Schema } from 'prosemirror-model'
+import { EditorView, NodeView } from 'prosemirror-view'
 import Extension, { ExtensionType } from '../lib/Extension'
+
+export type NodeViewCreator = (args: {
+  node: ProsemirrorNode
+  view: EditorView
+  getPos: (() => number) | boolean
+}) => NodeView
 
 export default abstract class Node extends Extension {
   get type(): ExtensionType {
@@ -19,13 +25,7 @@ export default abstract class Node extends Extension {
     return {}
   }
 
-  component?: React.ComponentType<ComponentViewProps>
-
-  get stopEvent(): boolean {
-    return true
-  }
-
-  get ignoreMutation(): boolean {
-    return true
+  get nodeView(): NodeViewCreator | undefined {
+    return undefined
   }
 }

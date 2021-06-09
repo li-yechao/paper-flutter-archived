@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:paper/src/common/config.dart';
+import 'package:paper/src/screens/paper/doc.dart';
 import 'package:rxdart/rxdart.dart';
 import 'package:paper/src/extensions/extensions.dart';
 
@@ -33,6 +34,16 @@ class _PaperEditorPlatformState extends State<PaperEditorPlatform> {
   StreamController<void>? _autoSaveStreamController;
   StreamSubscription? _autoSaveStreamSubscription;
 
+  List<Map<String, dynamic>> get content {
+    try {
+      final content = widget.content;
+      if (content != null) {
+        return List<Map<String, dynamic>>.from(jsonDecode(content));
+      }
+    } catch (e) {}
+    return [];
+  }
+
   @override
   void initState() {
     super.initState();
@@ -60,16 +71,16 @@ class _PaperEditorPlatformState extends State<PaperEditorPlatform> {
   void _postSetState() async {
     await _postMessage({
       'type': 'setState',
-      'data': {
-        'title': widget.title,
-        'content': widget.content,
-        'config': {
-          'readOnly': widget.readOnly,
-          'todoItemReadOnly': widget.todoItemReadOnly,
-          'ipfsApi': Config.ipfsApi,
-          'ipfsGateway': Config.ipfsGateway,
-        }
+      'config': {
+        'readOnly': widget.readOnly,
+        'todoItemReadOnly': widget.todoItemReadOnly,
+        'ipfsApi': Config.ipfsApi,
+        'ipfsGateway': Config.ipfsGateway,
       },
+      'doc': parseDocument(Document(
+        title: widget.title ?? '',
+        content: this.content,
+      )),
     });
   }
 
@@ -104,9 +115,14 @@ class _PaperEditorPlatformState extends State<PaperEditorPlatform> {
                 _postSetState();
                 break;
               case 'saveState':
-                final title = data?['data']['title'];
-                final content = data?['data']['content'];
-                widget.save?.call(title: title, content: content);
+                final document = parseProsemirror(
+                  Map<String, dynamic>.from(data?['doc']),
+                );
+                widget.save?.call(
+                  title: document.title,
+                  content: jsonEncode(document.content),
+                );
+
                 break;
               case 'stateChange':
                 _autoSaveStreamController?.add(null);

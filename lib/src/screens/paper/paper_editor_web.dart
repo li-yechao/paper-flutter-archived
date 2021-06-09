@@ -1,10 +1,12 @@
 import 'dart:async';
+import 'dart:convert';
 // ignore: avoid_web_libraries_in_flutter
 import 'dart:html';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:paper/src/common/config.dart';
+import 'package:paper/src/screens/paper/doc.dart';
 import 'package:rxdart/rxdart.dart';
 
 class PaperEditorPlatform extends StatefulWidget {
@@ -34,6 +36,16 @@ class _PaperEditorPlatformState extends State<PaperEditorPlatform> {
   StreamController<void>? _autoSaveStreamController;
   StreamSubscription? _autoSaveStreamSubscription;
   late final Function(Event) _messageHandler;
+
+  List<Map<String, dynamic>> get content {
+    try {
+      final content = widget.content;
+      if (content != null) {
+        return List<Map<String, dynamic>>.from(jsonDecode(content));
+      }
+    } catch (e) {}
+    return [];
+  }
 
   @override
   void initState() {
@@ -74,23 +86,23 @@ class _PaperEditorPlatformState extends State<PaperEditorPlatform> {
   void _postSetState() {
     _window?.postMessage({
       'type': 'setState',
-      'data': {
-        'title': widget.title,
-        'content': widget.content,
-        'config': {
-          'readOnly': widget.readOnly,
-          'todoItemReadOnly': widget.todoItemReadOnly,
-          'ipfsApi': Config.ipfsApi,
-          'ipfsGateway': Config.ipfsGateway,
-        }
+      'config': {
+        'readOnly': widget.readOnly,
+        'todoItemReadOnly': widget.todoItemReadOnly,
+        'ipfsApi': Config.ipfsApi,
+        'ipfsGateway': Config.ipfsGateway,
       },
+      'doc': parseDocument(Document(
+        title: widget.title ?? '',
+        content: this.content,
+      )),
     }, '*');
   }
 
   void _initMessage() {
     _messageHandler = (e) {
       e as MessageEvent;
-      switch (e.data?['type']) {
+      switch (e.data['type']) {
         case 'editorReady':
           if (e.source != null) {
             _window = e.source as WindowBase;
@@ -98,9 +110,13 @@ class _PaperEditorPlatformState extends State<PaperEditorPlatform> {
           }
           break;
         case 'saveState':
-          final title = e.data?['data']['title'];
-          final content = e.data?['data']['content'];
-          widget.save?.call(title: title, content: content);
+          final document = parseProsemirror(
+            Map<String, dynamic>.from(e.data?['doc']),
+          );
+          widget.save?.call(
+            title: document.title,
+            content: jsonEncode(document.content),
+          );
           break;
         case 'stateChange':
           _autoSaveStreamController?.add(null);

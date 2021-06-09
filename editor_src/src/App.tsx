@@ -1,24 +1,42 @@
-import { hot } from 'react-hot-loader/root'
-import React, { useCallback, useEffect, useMemo, useRef } from 'react'
-import { Node } from 'prosemirror-model'
 import styled from '@emotion/styled'
 import { useHotkey } from '@react-hook/hotkey'
+import EventEmitter from 'events'
+import { baseKeymap } from 'prosemirror-commands'
+import { dropCursor } from 'prosemirror-dropcursor'
+import { gapCursor } from 'prosemirror-gapcursor'
+import { undo, redo, history } from 'prosemirror-history'
+import { undoInputRule } from 'prosemirror-inputrules'
+import { keymap } from 'prosemirror-keymap'
+import { Node } from 'prosemirror-model'
+import React, { useCallback, useEffect, useRef } from 'react'
+import { hot } from 'react-hot-loader/root'
 import { useUpdate } from 'react-use'
 import Editor from './Editor'
-import { documentToProsemirrorDoc, prosemirrorDocToDocument } from './doc'
-import { ImageBlockOptions } from './Editor/nodes/ImageBlock'
-
-export type MessageEventData =
-  | { type: 'getState' }
-  | { type: 'saveState' }
-  | {
-      type: 'setState'
-      data: {
-        title?: string
-        content?: string
-        config?: Config
-      }
-    }
+import Placeholder from './Editor/decorations/Placeholder'
+import Manager from './Editor/lib/Manager'
+import Bold from './Editor/marks/Bold'
+import Code from './Editor/marks/Code'
+import Italic from './Editor/marks/Italic'
+import Link from './Editor/marks/Link'
+import Strikethrough from './Editor/marks/Strikethrough'
+import Underline from './Editor/marks/Underline'
+import Blockquote from './Editor/nodes/Blockquote'
+import BulletList from './Editor/nodes/BulletList'
+import CodeBlock from './Editor/nodes/CodeBlock'
+import Doc from './Editor/nodes/Doc'
+import Heading from './Editor/nodes/Heading'
+import ImageBlock from './Editor/nodes/ImageBlock'
+import ListItem from './Editor/nodes/ListItem'
+import OrderedList from './Editor/nodes/OrderedList'
+import Paragraph from './Editor/nodes/Paragraph'
+import Text from './Editor/nodes/Text'
+import Title from './Editor/nodes/Title'
+import TodoItem from './Editor/nodes/TodoItem'
+import TodoList from './Editor/nodes/TodoList'
+import VideoBlock from './Editor/nodes/VideoBlock'
+import DropPasteFile from './Editor/plugins/DropPasteFile'
+import Plugins from './Editor/plugins/Plugins'
+import { notEmpty } from './utils/array'
 
 export interface Config {
   readOnly?: boolean
@@ -27,140 +45,158 @@ export interface Config {
   ipfsGateway?: string
 }
 
-const postMessage = (data: any) => {
-  const inAppWebView = (window as any).flutter_inappwebview
-  if (typeof inAppWebView !== 'undefined') {
-    inAppWebView.callHandler('postMessage', data)
-  } else if (window.parent !== window) {
-    window.parent.postMessage(data, '*')
-  }
-}
-
 export const App = hot(() => {
-  const editorKey = useRef(0)
-  const editor = useRef<Editor>(null)
+  const update = useUpdate()
   const doc = useRef<Node>()
   const config = useRef<Config>({})
-  const update = useUpdate()
+  const manager = useRef<Manager>()
 
-  const getState = useCallback(() => {
-    if (!doc.current) {
-      return
-    }
-    const { title, content } = prosemirrorDocToDocument(doc.current)
-    return {
-      title,
-      content: JSON.stringify(content),
-    }
-  }, [])
-
-  const setDoc = useCallback((e: { readonly target: { readonly value: Node<any> } }) => {
+  const setDoc = useCallback((e: { readonly target: { readonly value: Node } }) => {
     doc.current = e.target.value
     update()
-    postMessage({ type: 'stateChange' })
+    Message.instance.stateChange()
   }, [])
 
   useEffect(() => {
-    const listener = ({ data }: MessageEvent<MessageEventData>) => {
-      if (data.type === 'setState') {
-        // First: Update the editor config.
-        if (typeof data.data.config?.readOnly === 'boolean') {
-          config.current.readOnly = data.data.config.readOnly
-        }
-        if (typeof data.data.config?.todoItemReadOnly === 'boolean') {
-          config.current.todoItemReadOnly = data.data.config.todoItemReadOnly
-        }
-        if (typeof data.data.config?.ipfsApi === 'string') {
-          config.current.ipfsApi = data.data.config.ipfsApi
-        }
-        if (typeof data.data.config?.ipfsGateway === 'string') {
-          config.current.ipfsGateway = data.data.config.ipfsGateway
-        }
-
-        editorKey.current += 1
-        update()
-
-        // Second: Update the value.
-        setTimeout(() => {
-          const content = JSON.parse(stringOr(data.data.content, null) || '[]')
-          if (editor.current) {
-            doc.current = Node.fromJSON(
-              editor.current.schema,
-              documentToProsemirrorDoc({
-                title: stringOr(data.data.title, ''),
-                content,
-              })
-            )
-          }
-
-          update()
-        })
-      } else if (data.type === 'getState') {
-        const data = getState()
-        data && postMessage({ type: 'getState', data: getState() })
-      } else if (data.type === 'saveState') {
-        const data = getState()
-        data && postMessage({ type: 'saveState', data })
+    Message.instance.on('setState', e => {
+      if (typeof e.config?.readOnly === 'boolean') {
+        config.current.readOnly = e.config.readOnly
       }
-    }
+      if (typeof e.config?.todoItemReadOnly === 'boolean') {
+        config.current.todoItemReadOnly = e.config.todoItemReadOnly
+      }
+      if (typeof e.config?.ipfsApi === 'string') {
+        config.current.ipfsApi = e.config.ipfsApi
+      }
+      if (typeof e.config?.ipfsGateway === 'string') {
+        config.current.ipfsGateway = e.config.ipfsGateway
+      }
 
-    window.addEventListener('message', listener)
-    postMessage({ type: 'editorReady' })
+      const { ipfsApi, ipfsGateway } = config.current
+      const uploadOptions =
+        ipfsApi && ipfsGateway
+          ? {
+              upload: async (file: File) => {
+                const form = new FormData()
+                form.append('file', file)
+                const res = await fetch(`${ipfsApi}/api/v0/add`, {
+                  method: 'POST',
+                  body: form,
+                })
+                const json = await res.json()
+                return json.Hash
+              },
+              getSrc: (hash: string) => {
+                return `${ipfsGateway}/ipfs/${hash}`
+              },
+            }
+          : undefined
+
+      const imageBlock = uploadOptions && new ImageBlock(uploadOptions)
+      const videoBlock = uploadOptions && new VideoBlock(uploadOptions)
+
+      const extensions = [
+        new Placeholder(),
+
+        new Doc(),
+        new Text(),
+        new Title(),
+        new Paragraph(),
+        new Heading(),
+        new Blockquote(),
+        new TodoList(),
+        new TodoItem({ todoItemReadOnly: config.current.todoItemReadOnly }),
+        new OrderedList(),
+        new BulletList(),
+        new ListItem(),
+        new CodeBlock(),
+
+        new Link(),
+        new Bold(),
+        new Italic(),
+        new Code(),
+        new Underline(),
+        new Strikethrough(),
+
+        new Plugins([
+          keymap({
+            'Mod-z': undo,
+            'Mod-y': redo,
+            Backspace: undoInputRule,
+          }),
+          keymap(baseKeymap),
+          history(),
+          gapCursor(),
+          dropCursor({ color: 'currentColor' }),
+        ]),
+
+        imageBlock,
+        videoBlock,
+
+        new DropPasteFile({
+          fileToNode: (view, file) => {
+            if (imageBlock && file.type.startsWith('image/')) {
+              const node = view.state.schema.nodes[imageBlock.name].create({
+                src: null,
+                caption: file.name,
+              })
+              node.file = file
+              return node
+            } else if (videoBlock && file.type.startsWith('video/')) {
+              const node = view.state.schema.nodes[videoBlock.name].create({
+                src: null,
+                caption: file.name,
+              })
+              node.file = file
+              return node
+            }
+            return
+          },
+        }),
+      ]
+
+      manager.current = new Manager(extensions.filter(notEmpty), e.doc)
+      doc.current = manager.current.state.doc
+
+      update()
+    })
+
+    Message.instance.on('getState', () => {
+      doc.current && Message.instance.getState(doc.current.toJSON())
+    })
+
+    Message.instance.on('saveState', () => {
+      doc.current && Message.instance.saveState(doc.current.toJSON())
+    })
+
+    Message.instance.editorReady()
 
     return () => {
-      window.removeEventListener('message', listener)
+      Message.instance.removeAllListeners()
     }
   }, [])
 
   useHotkey(window, ['mod', 's'], e => {
     e.preventDefault()
-    const data = getState()
-    data && postMessage({ type: 'saveState', data })
+    doc.current && Message.instance.saveState(doc.current.toJSON())
   })
 
   const readOnly = config.current.readOnly ?? true
-  const todoItemReadOnly = config.current.todoItemReadOnly ?? true
 
-  const imageBlockOptions = useMemo<ImageBlockOptions | undefined>(() => {
-    const { ipfsApi, ipfsGateway } = config.current
-    if (!ipfsApi || !ipfsGateway) {
-      return
-    }
-    return {
-      upload: async file => {
-        const form = new FormData()
-        form.append('file', file)
-        const res = await fetch(`${ipfsApi}/api/v0/add`, {
-          method: 'POST',
-          body: form,
-        })
-        const json = await res.json()
-        return json.Hash
-      },
-      getSrc: hash => {
-        return `${ipfsGateway}/ipfs/${hash}`
-      },
-    }
-  }, [config.current.ipfsApi, config.current.ipfsGateway])
+  if (!manager.current) {
+    return null
+  }
 
   return (
     <_Editor
-      key={editorKey.current}
       readOnly={readOnly}
       autoFocus
-      todoItemReadOnly={todoItemReadOnly}
-      ref={editor}
       value={doc.current}
       onChange={setDoc}
-      imageBlockOptions={imageBlockOptions}
-      videoBlockOptions={imageBlockOptions}
+      manager={manager.current}
     />
   )
 })
-
-function stringOr<T>(v: any, d: T) {
-  return typeof v === 'string' ? v : d
-}
 
 const _Editor = styled(Editor)`
   .ProseMirror {
@@ -171,3 +207,68 @@ const _Editor = styled(Editor)`
     margin: auto;
   }
 `
+
+export type DocJson = { [key: string]: any }
+
+export type MessageDataSend =
+  | { type: 'editorReady' }
+  | { type: 'stateChange' }
+  | { type: 'saveState'; doc: DocJson }
+  | { type: 'getState'; doc: DocJson }
+
+export type MessageDataRecv =
+  | { type: 'getState' }
+  | { type: 'saveState' }
+  | {
+      type: 'setState'
+      doc?: DocJson
+      config?: Config
+    }
+
+declare interface Message {
+  on(event: 'getState', listener: () => void): this
+  on(event: 'saveState', listener: () => void): this
+  on(event: 'setState', listener: (state: { doc?: DocJson; config?: Config }) => void): this
+}
+
+class Message extends EventEmitter {
+  static readonly instance = new Message()
+
+  constructor() {
+    super()
+    window.addEventListener('message', this.recvMessage)
+  }
+
+  editorReady() {
+    this.postMessage({ type: 'editorReady' })
+  }
+
+  stateChange() {
+    this.postMessage({ type: 'stateChange' })
+  }
+
+  saveState(doc: DocJson) {
+    this.postMessage({ type: 'saveState', doc })
+  }
+
+  getState(doc: DocJson) {
+    this.postMessage({ type: 'getState', doc })
+  }
+
+  dispose() {
+    window.removeEventListener('message', this.recvMessage)
+  }
+
+  private recvMessage = (e: MessageEvent<MessageDataRecv>) => {
+    this.emit(e.data.type, e.data)
+  }
+
+  private postMessage(data: MessageDataSend) {
+    const inAppWebView = (window as any).flutter_inappwebview
+    if (typeof inAppWebView !== 'undefined') {
+      inAppWebView.callHandler('postMessage', data)
+    } else if (window.parent !== window) {
+      window.parent.postMessage(data, '*')
+    }
+  }
+}

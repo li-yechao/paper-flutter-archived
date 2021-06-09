@@ -1,9 +1,10 @@
 import styled from '@emotion/styled'
-import { NodeSpec } from 'prosemirror-model'
+import { Node as ProsemirrorNode, NodeSpec } from 'prosemirror-model'
+import { EditorView } from 'prosemirror-view'
 import React, { useEffect, useState } from 'react'
-import { ComponentViewProps } from '../lib/ComponentView'
+import ReactDOM from 'react-dom'
 import { FigureView } from '../lib/FigureView'
-import Node from './Node'
+import Node, { NodeViewCreator } from './Node'
 
 export interface ImageBlockOptions {
   upload: (file: File) => Promise<string>
@@ -14,6 +15,8 @@ export default class ImageBlock extends Node {
   constructor(private options: ImageBlockOptions) {
     super()
   }
+
+  private stopEvent = false
 
   get name(): string {
     return 'image_block'
@@ -51,12 +54,56 @@ export default class ImageBlock extends Node {
     }
   }
 
-  _stopEvent = false
-  get stopEvent(): boolean {
-    return this._stopEvent
+  get nodeView(): NodeViewCreator {
+    return ({ node, view, getPos }) => {
+      const dom = document.createElement('div')
+      let selected = false
+      const render = () => {
+        const C = this.component
+        ReactDOM.render(<C node={node} view={view} selected={selected} getPos={getPos} />, dom)
+      }
+      render()
+
+      return {
+        dom,
+        update: updatedNode => {
+          if (updatedNode.type !== node.type) {
+            return false
+          }
+          node = updatedNode
+          render()
+          return true
+        },
+        selectNode: () => {
+          if (view.editable) {
+            selected = true
+            render()
+          }
+        },
+        deselectNode: () => {
+          selected = false
+          render()
+        },
+        stopEvent: () => this.stopEvent,
+        ignoreMutation: () => true,
+        destroy: () => {
+          ReactDOM.unmountComponentAtNode(dom)
+        },
+      }
+    }
   }
 
-  component = ({ node, view, selected, getPos }: ComponentViewProps) => {
+  component = ({
+    node,
+    view,
+    selected,
+    getPos,
+  }: {
+    node: ProsemirrorNode
+    view: EditorView
+    selected: boolean
+    getPos: boolean | (() => number)
+  }) => {
     const [src, setSrc] = useState<string | null>()
     const [loading, setLoading] = useState(false)
 
@@ -79,7 +126,9 @@ export default class ImageBlock extends Node {
         try {
           const src = await this.options.upload(file)
           setSrc(await this.options.getSrc(src))
-          view.dispatch(view.state.tr.setNodeMarkup(getPos(), node.type, { ...node.attrs, src }))
+          if (typeof getPos === 'function') {
+            view.dispatch(view.state.tr.setNodeMarkup(getPos(), node.type, { ...node.attrs, src }))
+          }
         } finally {
           setLoading(false)
         }
@@ -87,9 +136,14 @@ export default class ImageBlock extends Node {
     }, [])
 
     const handleCaptionChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-      view.dispatch(
-        view.state.tr.setNodeMarkup(getPos(), node.type, { ...node.attrs, caption: e.target.value })
-      )
+      if (typeof getPos === 'function') {
+        view.dispatch(
+          view.state.tr.setNodeMarkup(getPos(), node.type, {
+            ...node.attrs,
+            caption: e.target.value,
+          })
+        )
+      }
     }
 
     return (
@@ -99,7 +153,7 @@ export default class ImageBlock extends Node {
         caption={node.attrs.caption}
         loading={loading}
         onCaptionChange={handleCaptionChange}
-        toggleStopEvent={e => (this._stopEvent = e)}
+        toggleStopEvent={e => (this.stopEvent = e)}
       >
         <_Content>
           <img src={src || undefined} />

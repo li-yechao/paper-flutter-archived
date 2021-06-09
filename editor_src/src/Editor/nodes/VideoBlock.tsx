@@ -1,13 +1,14 @@
 import styled from '@emotion/styled'
 import { createFFmpeg } from '@ffmpeg/ffmpeg'
-import PlayArrowRoundedIcon from '@material-ui/icons/PlayArrowRounded'
 import PauseRoundedIcon from '@material-ui/icons/PauseRounded'
-import { NodeSpec } from 'prosemirror-model'
+import PlayArrowRoundedIcon from '@material-ui/icons/PlayArrowRounded'
+import { Node as ProsemirrorNode, NodeSpec } from 'prosemirror-model'
+import { EditorView } from 'prosemirror-view'
 import React, { useEffect, useRef, useState } from 'react'
+import ReactDOM from 'react-dom'
 import { useToggle } from 'react-use'
-import { ComponentViewProps } from '../lib/ComponentView'
-import Node from './Node'
 import { FigureView } from '../lib/FigureView'
+import Node, { NodeViewCreator } from './Node'
 
 export interface VideoBlockOptions {
   upload: (file: File) => Promise<string>
@@ -18,6 +19,8 @@ export default class VideoBlock extends Node {
   constructor(private options: VideoBlockOptions) {
     super()
   }
+
+  private stopEvent = false
 
   get name(): string {
     return 'video_block'
@@ -55,12 +58,56 @@ export default class VideoBlock extends Node {
     }
   }
 
-  _stopEvent = false
-  get stopEvent(): boolean {
-    return this._stopEvent
+  get nodeView(): NodeViewCreator {
+    return ({ node, view, getPos }) => {
+      const dom = document.createElement('div')
+      let selected = false
+      const render = () => {
+        const C = this.component
+        ReactDOM.render(<C node={node} view={view} selected={selected} getPos={getPos} />, dom)
+      }
+      render()
+
+      return {
+        dom,
+        update: updatedNode => {
+          if (updatedNode.type !== node.type) {
+            return false
+          }
+          node = updatedNode
+          render()
+          return true
+        },
+        selectNode: () => {
+          if (view.editable) {
+            selected = true
+            render()
+          }
+        },
+        deselectNode: () => {
+          selected = false
+          render()
+        },
+        stopEvent: () => this.stopEvent,
+        ignoreMutation: () => true,
+        destroy: () => {
+          ReactDOM.unmountComponentAtNode(dom)
+        },
+      }
+    }
   }
 
-  component = ({ node, view, selected, getPos }: ComponentViewProps) => {
+  component = ({
+    node,
+    view,
+    selected,
+    getPos,
+  }: {
+    node: ProsemirrorNode
+    view: EditorView
+    selected: boolean
+    getPos: boolean | (() => number)
+  }) => {
     const player = useRef<HTMLVideoElement>(null)
     const [playing, togglePlaying] = useToggle(true)
     const [src, setSrc] = useState<string | null>()
@@ -98,13 +145,15 @@ export default class VideoBlock extends Node {
         try {
           const src = await this.options.upload(file)
           setSrc(await this.options.getSrc(src))
-          view.dispatch(
-            view.state.tr.setNodeMarkup(getPos(), node.type, {
-              ...node.attrs,
-              src,
-              caption: file.name,
-            })
-          )
+          if (typeof getPos === 'function') {
+            view.dispatch(
+              view.state.tr.setNodeMarkup(getPos(), node.type, {
+                ...node.attrs,
+                src,
+                caption: file.name,
+              })
+            )
+          }
         } finally {
           setLoading(false)
         }
@@ -112,9 +161,14 @@ export default class VideoBlock extends Node {
     }, [])
 
     const handleCaptionChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-      view.dispatch(
-        view.state.tr.setNodeMarkup(getPos(), node.type, { ...node.attrs, caption: e.target.value })
-      )
+      if (typeof getPos === 'function') {
+        view.dispatch(
+          view.state.tr.setNodeMarkup(getPos(), node.type, {
+            ...node.attrs,
+            caption: e.target.value,
+          })
+        )
+      }
     }
 
     const playPause = (e: React.MouseEvent | React.TouchEvent) => {
@@ -135,7 +189,7 @@ export default class VideoBlock extends Node {
         caption={node.attrs.caption}
         loading={loading}
         onCaptionChange={handleCaptionChange}
-        toggleStopEvent={e => (this._stopEvent = e)}
+        toggleStopEvent={e => (this.stopEvent = e)}
       >
         <_Content>
           <video

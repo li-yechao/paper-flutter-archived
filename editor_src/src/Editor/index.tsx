@@ -1,193 +1,64 @@
-import React, { createRef } from 'react'
 import styled from '@emotion/styled'
-import { EditorState, TextSelection } from 'prosemirror-state'
+import { Node } from 'prosemirror-model'
 import { EditorView } from 'prosemirror-view'
-import { Node, Schema } from 'prosemirror-model'
-import { history, redo, undo } from 'prosemirror-history'
-import { keymap } from 'prosemirror-keymap'
-import { baseKeymap } from 'prosemirror-commands'
-import { dropCursor } from 'prosemirror-dropcursor'
-import { gapCursor } from 'prosemirror-gapcursor'
-import 'prosemirror-gapcursor/style/gapcursor.css'
-import { inputRules, undoInputRule } from 'prosemirror-inputrules'
-import { notEmpty } from '../utils/array'
-import ExtensionManager from './lib/ExtensionManager'
-import Placeholder from './decorations/Placeholder'
-import DropPasteFile from './plugins/DropPasteFile'
-import Doc from './nodes/Doc'
-import Title from './nodes/Title'
-import Paragraph from './nodes/Paragraph'
-import Heading from './nodes/Heading'
-import Text from './nodes/Text'
-import Blockquote from './nodes/Blockquote'
-import OrderedList from './nodes/OrderedList'
-import BulletList from './nodes/BulletList'
-import ListItem from './nodes/ListItem'
-import CodeBlock from './nodes/CodeBlock'
-import ImageBlock, { ImageBlockOptions } from './nodes/ImageBlock'
-import Link from './marks/Link'
-import Bold from './marks/Bold'
-import Italic from './marks/Italic'
-import Code from './marks/Code'
-import Underline from './marks/Underline'
-import Strikethrough from './marks/Strikethrough'
-import TodoList from './nodes/TodoList'
-import TodoItem from './nodes/TodoItem'
-import VideoBlock, { VideoBlockOptions } from './nodes/VideoBlock'
+import React, { createRef } from 'react'
+import Manager from './lib/Manager'
 
 export interface EditorProps {
   className?: string
   value?: Node
   readOnly?: boolean
   autoFocus?: boolean
-  todoItemReadOnly?: boolean
+  manager: Manager
   onChange?: (e: { readonly target: { readonly value: Node } }) => void
-
-  imageBlockOptions?: ImageBlockOptions
-  videoBlockOptions?: VideoBlockOptions
 }
 
 export default class Editor extends React.PureComponent<EditorProps> {
   container = createRef<HTMLDivElement>()
-  extensionManager: ExtensionManager
 
-  schema: Schema
-  view?: EditorView
-
-  get todoItemReadOnly() {
-    return this.props.todoItemReadOnly ?? this.props.readOnly
-  }
-
-  constructor(props: EditorProps) {
-    super(props)
-
-    const imageBlock = props.imageBlockOptions && new ImageBlock(props.imageBlockOptions)
-    const videoBlock = props.videoBlockOptions && new VideoBlock(props.videoBlockOptions)
-    const dropPasteFile = new DropPasteFile({
-      fileToNode: (view, file) => {
-        if (imageBlock && file.type.startsWith('image/')) {
-          const node = view.state.schema.nodes[imageBlock.name].create({
-            src: null,
-            caption: file.name,
-          })
-          node.file = file
-          return node
-        } else if (videoBlock && file.type.startsWith('video/')) {
-          const node = view.state.schema.nodes[videoBlock.name].create({
-            src: null,
-            caption: file.name,
-          })
-          node.file = file
-          return node
-        }
-        return
-      },
-    })
-
-    const extensions = [
-      new Placeholder(),
-
-      new Doc(),
-      new Text(),
-      new Title(),
-      new Paragraph(),
-      new Heading(),
-      new Blockquote(),
-      new TodoList(),
-      new TodoItem(this),
-      new OrderedList(),
-      new BulletList(),
-      new ListItem(),
-      new CodeBlock(),
-
-      new Link(),
-      new Bold(),
-      new Italic(),
-      new Code(),
-      new Underline(),
-      new Strikethrough(),
-
-      imageBlock,
-      videoBlock,
-      dropPasteFile,
-    ]
-
-    this.extensionManager = new ExtensionManager(extensions.filter(notEmpty))
-
-    this.schema = new Schema({
-      nodes: this.extensionManager.nodeSpecs,
-      marks: this.extensionManager.markSpecs,
-    })
-  }
+  editor?: EditorView
 
   componentDidMount() {
-    const container = this.container.current
-    if (!container) {
-      return
-    }
-    const { schema } = this
-    const state = EditorState.create({
-      schema,
-      doc: this.props.value,
-      plugins: [
-        inputRules({ rules: this.extensionManager.inputRules({ schema }) }),
-        ...this.extensionManager.keymap({ schema }),
-        history(),
-        keymap({
-          'Mod-z': undo,
-          'Mod-y': redo,
-          Backspace: undoInputRule,
-        }),
-        gapCursor(),
-        dropCursor({ color: 'currentColor' }),
-        keymap(baseKeymap),
-        ...this.extensionManager.plugins,
-      ],
-    })
-    const view = new EditorView(container, {
-      state,
-      editable: () => !this.props.readOnly,
-      nodeViews: this.extensionManager.nodeViews(),
-      dispatchTransaction: tr => {
-        view.updateState(view.state.apply(tr))
-        if (tr.docChanged) {
-          this.props.onChange?.({ target: { value: view.state.doc } })
-        }
-      },
-    })
-    this.view = view
+    this.initEditor()
     this.props.autoFocus && this.focus()
   }
 
   componentDidUpdate(prevProps: EditorProps) {
-    if (
-      this.view &&
-      this.props.value !== prevProps.value &&
-      this.props.value !== this.view.state.doc
-    ) {
-      const { schema, plugins } = this.view.state
-      this.view.updateState(EditorState.create({ schema, plugins, doc: this.props.value }))
-      this.props.autoFocus && this.focus()
+    if (this.props.manager !== prevProps.manager) {
+      this.initEditor()
     }
   }
 
   focus() {
-    if (!this.view) {
+    this.editor?.focus()
+  }
+
+  private initEditor() {
+    this.editor?.destroy()
+
+    const container = this.container.current
+    if (!container) {
       return
     }
-    const {
-      state: { tr, doc },
-    } = this.view
-    const hasTitle = doc.firstChild?.textContent.trim().length
-    if (hasTitle) {
-      this.view.dispatch(tr.setSelection(TextSelection.create(doc, doc.content.size)))
-    }
-    this.view.focus()
+
+    const { manager, readOnly, onChange } = this.props
+    this.editor = new EditorView(container, {
+      state: manager.state,
+      editable: () => !readOnly,
+      nodeViews: manager.nodeViews,
+      dispatchTransaction: function (tr) {
+        const state = this.state.apply(tr)
+        this.updateState(state)
+
+        if (tr.docChanged) {
+          onChange?.({ target: { value: state.doc } })
+        }
+      },
+    })
   }
 
   render() {
-    const { className } = this.props
-    return <_EditorContainer className={className} ref={this.container} />
+    return <_EditorContainer className={this.props.className} ref={this.container} />
   }
 }
 
