@@ -1,22 +1,21 @@
 import styled from '@emotion/styled'
-import { Node } from 'prosemirror-model'
+import { Transaction } from 'prosemirror-state'
 import { EditorView } from 'prosemirror-view'
 import React, { createRef } from 'react'
 import Manager from './lib/Manager'
 
 export interface EditorProps {
   className?: string
-  value?: Node
   readOnly?: boolean
   autoFocus?: boolean
   manager: Manager
-  onChange?: (e: { readonly target: { readonly value: Node } }) => void
+  dispatchTransaction?: ((this: EditorView, tr: Transaction) => void) | null
 }
 
 export default class Editor extends React.PureComponent<EditorProps> {
   container = createRef<HTMLDivElement>()
 
-  editor?: EditorView
+  editorView?: EditorView
 
   componentDidMount() {
     this.initEditor()
@@ -30,30 +29,23 @@ export default class Editor extends React.PureComponent<EditorProps> {
   }
 
   focus() {
-    this.editor?.focus()
+    this.editorView?.focus()
   }
 
   private initEditor() {
-    this.editor?.destroy()
+    this.editorView?.destroy()
 
     const container = this.container.current
     if (!container) {
       return
     }
 
-    const { manager, readOnly, onChange } = this.props
-    this.editor = new EditorView(container, {
+    const { manager, readOnly, dispatchTransaction } = this.props
+    this.editorView = new EditorView(container, {
       state: manager.state,
       editable: () => !readOnly,
       nodeViews: manager.nodeViews,
-      dispatchTransaction: function (tr) {
-        const state = this.state.apply(tr)
-        this.updateState(state)
-
-        if (tr.docChanged) {
-          onChange?.({ target: { value: state.doc } })
-        }
-      },
+      dispatchTransaction,
     })
   }
 

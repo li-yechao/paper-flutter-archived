@@ -1,6 +1,7 @@
 import styled from '@emotion/styled'
 import { useHotkey } from '@react-hook/hotkey'
 import EventEmitter from 'events'
+import { collab, receiveTransaction, sendableSteps } from 'prosemirror-collab'
 import { baseKeymap } from 'prosemirror-commands'
 import { dropCursor } from 'prosemirror-dropcursor'
 import { gapCursor } from 'prosemirror-gapcursor'
@@ -8,9 +9,11 @@ import { undo, redo, history } from 'prosemirror-history'
 import { undoInputRule } from 'prosemirror-inputrules'
 import { keymap } from 'prosemirror-keymap'
 import { Node } from 'prosemirror-model'
+import { Step } from 'prosemirror-transform'
 import React, { useCallback, useEffect, useRef } from 'react'
 import { hot } from 'react-hot-loader/root'
 import { useUpdate } from 'react-use'
+import CollabClient, { CollabClientOptions } from './CollabClient'
 import Editor from './Editor'
 import Placeholder from './Editor/decorations/Placeholder'
 import Manager from './Editor/lib/Manager'
@@ -38,87 +41,70 @@ import DropPasteFile from './Editor/plugins/DropPasteFile'
 import Plugins from './Editor/plugins/Plugins'
 import { notEmpty } from './utils/array'
 
-export interface Config {
-  readOnly?: boolean
-  todoItemReadOnly?: boolean
-  ipfsApi?: string
-  ipfsGateway?: string
-}
-
 export const App = hot(() => {
   const update = useUpdate()
+  const editor = useRef<Editor>(null)
   const doc = useRef<Node>()
-  const config = useRef<Config>({})
+  const config = useRef<Config>()
+  const collabOptions = useRef<CollabClientOptions>()
+  const collabClient = useRef<CollabClient>()
   const manager = useRef<Manager>()
 
-  const setDoc = useCallback((e: { readonly target: { readonly value: Node } }) => {
-    doc.current = e.target.value
+  const setDoc = useCallback((v: Node) => {
+    doc.current = v
     update()
     Message.instance.stateChange()
   }, [])
 
-  useEffect(() => {
-    Message.instance.on('setState', e => {
-      if (typeof e.config?.readOnly === 'boolean') {
-        config.current.readOnly = e.config.readOnly
-      }
-      if (typeof e.config?.todoItemReadOnly === 'boolean') {
-        config.current.todoItemReadOnly = e.config.todoItemReadOnly
-      }
-      if (typeof e.config?.ipfsApi === 'string') {
-        config.current.ipfsApi = e.config.ipfsApi
-      }
-      if (typeof e.config?.ipfsGateway === 'string') {
-        config.current.ipfsGateway = e.config.ipfsGateway
-      }
+  const newManager = useCallback((e: { doc?: DocJson; collab?: { version?: number } }) => {
+    const { ipfsApi, ipfsGateway } = config.current || {}
+    const uploadOptions =
+      ipfsApi && ipfsGateway
+        ? {
+            upload: async (file: File) => {
+              const form = new FormData()
+              form.append('file', file)
+              const res = await fetch(`${ipfsApi}/api/v0/add`, {
+                method: 'POST',
+                body: form,
+              })
+              const json = await res.json()
+              return json.Hash
+            },
+            getSrc: (hash: string) => {
+              return `${ipfsGateway}/ipfs/${hash}`
+            },
+          }
+        : undefined
 
-      const { ipfsApi, ipfsGateway } = config.current
-      const uploadOptions =
-        ipfsApi && ipfsGateway
-          ? {
-              upload: async (file: File) => {
-                const form = new FormData()
-                form.append('file', file)
-                const res = await fetch(`${ipfsApi}/api/v0/add`, {
-                  method: 'POST',
-                  body: form,
-                })
-                const json = await res.json()
-                return json.Hash
-              },
-              getSrc: (hash: string) => {
-                return `${ipfsGateway}/ipfs/${hash}`
-              },
-            }
-          : undefined
+    const imageBlock = uploadOptions && new ImageBlock(uploadOptions)
+    const videoBlock = uploadOptions && new VideoBlock(uploadOptions)
 
-      const imageBlock = uploadOptions && new ImageBlock(uploadOptions)
-      const videoBlock = uploadOptions && new VideoBlock(uploadOptions)
+    const extensions = [
+      new Placeholder(),
 
-      const extensions = [
-        new Placeholder(),
+      new Doc(),
+      new Text(),
+      new Title(),
+      new Paragraph(),
+      new Heading(),
+      new Blockquote(),
+      new TodoList(),
+      new TodoItem({ todoItemReadOnly: config.current?.todoItemReadOnly }),
+      new OrderedList(),
+      new BulletList(),
+      new ListItem(),
+      new CodeBlock(),
 
-        new Doc(),
-        new Text(),
-        new Title(),
-        new Paragraph(),
-        new Heading(),
-        new Blockquote(),
-        new TodoList(),
-        new TodoItem({ todoItemReadOnly: config.current.todoItemReadOnly }),
-        new OrderedList(),
-        new BulletList(),
-        new ListItem(),
-        new CodeBlock(),
+      new Link(),
+      new Bold(),
+      new Italic(),
+      new Code(),
+      new Underline(),
+      new Strikethrough(),
 
-        new Link(),
-        new Bold(),
-        new Italic(),
-        new Code(),
-        new Underline(),
-        new Strikethrough(),
-
-        new Plugins([
+      new Plugins(
+        [
           keymap({
             'Mod-z': undo,
             'Mod-y': redo,
@@ -128,37 +114,67 @@ export const App = hot(() => {
           history(),
           gapCursor(),
           dropCursor({ color: 'currentColor' }),
-        ]),
+          e.collab && collab({ version: e.collab.version }),
+        ].filter(notEmpty)
+      ),
 
-        imageBlock,
-        videoBlock,
+      imageBlock,
+      videoBlock,
 
-        new DropPasteFile({
-          fileToNode: (view, file) => {
-            if (imageBlock && file.type.startsWith('image/')) {
-              const node = view.state.schema.nodes[imageBlock.name].create({
-                src: null,
-                caption: file.name,
-              })
-              node.file = file
-              return node
-            } else if (videoBlock && file.type.startsWith('video/')) {
-              const node = view.state.schema.nodes[videoBlock.name].create({
-                src: null,
-                caption: file.name,
-              })
-              node.file = file
-              return node
-            }
-            return
-          },
-        }),
-      ]
+      new DropPasteFile({
+        fileToNode: (view, file) => {
+          if (imageBlock && file.type.startsWith('image/')) {
+            const node = view.state.schema.nodes[imageBlock.name].create({
+              src: null,
+              caption: file.name,
+            })
+            node.file = file
+            return node
+          } else if (videoBlock && file.type.startsWith('video/')) {
+            const node = view.state.schema.nodes[videoBlock.name].create({
+              src: null,
+              caption: file.name,
+            })
+            node.file = file
+            return node
+          }
+          return
+        },
+      }),
+    ]
 
-      manager.current = new Manager(extensions.filter(notEmpty), e.doc)
-      doc.current = manager.current.state.doc
+    manager.current = new Manager(extensions.filter(notEmpty), e.doc)
+    doc.current = manager.current.state.doc
 
-      update()
+    update()
+  }, [])
+
+  useEffect(() => {
+    Message.instance.on('setState', e => {
+      config.current = e.config
+      collabOptions.current = e.collab
+
+      if (!collabOptions.current) {
+        newManager({ doc: e.doc })
+      } else {
+        collabClient.current = new CollabClient(collabOptions.current)
+        collabClient.current.on('paper', ({ version, doc }) => {
+          newManager({ doc, collab: { version } })
+        })
+        collabClient.current.on('transaction', ({ steps, clientIDs }) => {
+          if (manager.current && editor.current?.editorView) {
+            const { schema } = manager.current
+            const { editorView } = editor.current
+            const { state } = editorView
+            const tr = receiveTransaction(
+              state,
+              steps.map(i => Step.fromJSON(schema, i)),
+              clientIDs
+            )
+            editor.current.editorView.updateState(state.apply(tr))
+          }
+        })
+      }
     })
 
     Message.instance.on('getState', () => {
@@ -181,19 +197,29 @@ export const App = hot(() => {
     doc.current && Message.instance.saveState(doc.current.toJSON())
   })
 
-  const readOnly = config.current.readOnly ?? true
-
   if (!manager.current) {
     return null
   }
 
   return (
     <_Editor
-      readOnly={readOnly}
+      ref={editor}
+      readOnly={config.current?.readOnly}
       autoFocus
-      value={doc.current}
-      onChange={setDoc}
       manager={manager.current}
+      dispatchTransaction={function (tr) {
+        const state = this.state.apply(tr)
+        this.updateState(state)
+
+        const sendable = sendableSteps(state)
+        if (sendable) {
+          collabClient.current?.transaction(sendable)
+        }
+
+        if (tr.docChanged) {
+          setDoc(state.doc)
+        }
+      }}
     />
   )
 })
@@ -210,6 +236,13 @@ const _Editor = styled(Editor)`
 
 export type DocJson = { [key: string]: any }
 
+export interface Config {
+  readOnly?: boolean
+  todoItemReadOnly?: boolean
+  ipfsApi?: string
+  ipfsGateway?: string
+}
+
 export type MessageDataSend =
   | { type: 'editorReady' }
   | { type: 'stateChange' }
@@ -222,13 +255,17 @@ export type MessageDataRecv =
   | {
       type: 'setState'
       doc?: DocJson
+      collab?: CollabClientOptions
       config?: Config
     }
 
 declare interface Message {
   on(event: 'getState', listener: () => void): this
   on(event: 'saveState', listener: () => void): this
-  on(event: 'setState', listener: (state: { doc?: DocJson; config?: Config }) => void): this
+  on(
+    event: 'setState',
+    listener: (state: { doc?: DocJson; collab?: CollabClientOptions; config?: Config }) => void
+  ): this
 }
 
 class Message extends EventEmitter {

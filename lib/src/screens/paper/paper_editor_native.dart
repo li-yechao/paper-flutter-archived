@@ -5,22 +5,20 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:paper/src/common/config.dart';
-import 'package:paper/src/screens/paper/doc.dart';
-import 'package:rxdart/rxdart.dart';
 import 'package:paper/src/extensions/extensions.dart';
 
 class PaperEditorPlatform extends StatefulWidget {
-  final String? title;
-  final String? content;
-  final Function({String? title, String? content})? save;
+  final String accessToken;
+  final String userId;
+  final String paperId;
   final bool readOnly;
   final bool todoItemReadOnly;
 
   PaperEditorPlatform({
     Key? key,
-    this.title,
-    this.content,
-    this.save,
+    required this.accessToken,
+    required this.userId,
+    required this.paperId,
     required this.readOnly,
     required this.todoItemReadOnly,
   }) : super(key: key);
@@ -31,42 +29,6 @@ class PaperEditorPlatform extends StatefulWidget {
 
 class _PaperEditorPlatformState extends State<PaperEditorPlatform> {
   InAppWebViewController? _controller;
-  StreamController<void>? _autoSaveStreamController;
-  StreamSubscription? _autoSaveStreamSubscription;
-
-  List<Map<String, dynamic>> get content {
-    try {
-      final content = widget.content;
-      if (content != null) {
-        return List<Map<String, dynamic>>.from(jsonDecode(content));
-      }
-    } catch (e) {}
-    return [];
-  }
-
-  @override
-  void initState() {
-    super.initState();
-
-    _autoSaveStreamController = StreamController<void>();
-    _autoSaveStreamSubscription = _autoSaveStreamController?.stream
-        .debounceTime(Duration(seconds: 3))
-        .listen((_) => _postSaveState());
-  }
-
-  @override
-  void dispose() {
-    _autoSaveStreamSubscription?.cancel();
-    _autoSaveStreamController?.close();
-
-    super.dispose();
-  }
-
-  void _postSaveState() {
-    _postMessage({
-      'type': 'saveState',
-    });
-  }
 
   void _postSetState() async {
     await _postMessage({
@@ -77,10 +39,12 @@ class _PaperEditorPlatformState extends State<PaperEditorPlatform> {
         'ipfsApi': Config.ipfsApi,
         'ipfsGateway': Config.ipfsGateway,
       },
-      'doc': parseDocument(Document(
-        title: widget.title ?? '',
-        content: this.content,
-      )),
+      'collab': {
+        'webSocketUri': Config.collabWebSocketUri,
+        'userId': widget.userId,
+        'paperId': widget.paperId,
+        'accessToken': widget.accessToken,
+      },
     });
   }
 
@@ -113,19 +77,6 @@ class _PaperEditorPlatformState extends State<PaperEditorPlatform> {
             switch (data?['type']) {
               case 'editorReady':
                 _postSetState();
-                break;
-              case 'saveState':
-                final document = parseProsemirror(
-                  Map<String, dynamic>.from(data?['doc']),
-                );
-                widget.save?.call(
-                  title: document.title,
-                  content: jsonEncode(document.content),
-                );
-
-                break;
-              case 'stateChange':
-                _autoSaveStreamController?.add(null);
                 break;
             }
           },

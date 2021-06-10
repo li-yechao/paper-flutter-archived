@@ -6,16 +6,16 @@ import './paper_editor_native.dart'
 class PaperEditor extends PaperEditorPlatform {
   PaperEditor({
     Key? key,
-    title,
-    content,
-    save,
-    readOnly = true,
-    todoItemReadOnly = true,
+    required String accessToken,
+    required String userId,
+    required String paperId,
+    bool readOnly = true,
+    bool todoItemReadOnly = true,
   }) : super(
           key: key,
-          title: title,
-          content: content,
-          save: save,
+          accessToken: accessToken,
+          userId: userId,
+          paperId: paperId,
           readOnly: readOnly,
           todoItemReadOnly: todoItemReadOnly,
         );

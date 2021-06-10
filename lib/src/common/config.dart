@@ -28,4 +28,10 @@ class Config {
     assert(uri.isNotEmpty, 'Required env IPFS_GATEWAY is not present');
     return uri;
   }
+
+  static String get collabWebSocketUri {
+    final uri = const String.fromEnvironment('COLLAB_WEB_SOCKET_URI');
+    assert(uri.isNotEmpty, 'Required env COLLAB_WEB_SOCKET_URI is not present');
+    return uri;
+  }
 }
