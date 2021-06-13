@@ -1,7 +1,7 @@
 import styled from '@emotion/styled'
 import { useHotkey } from '@react-hook/hotkey'
 import EventEmitter from 'events'
-import { collab, receiveTransaction, sendableSteps } from 'prosemirror-collab'
+import { collab, getVersion, receiveTransaction, sendableSteps } from 'prosemirror-collab'
 import { baseKeymap } from 'prosemirror-commands'
 import { dropCursor } from 'prosemirror-dropcursor'
 import { gapCursor } from 'prosemirror-gapcursor'
@@ -215,18 +215,30 @@ export const App = hot(() => {
       autoFocus
       manager={manager.current}
       dispatchTransaction={function (tr) {
-        const state = this.state.apply(tr)
-        this.updateState(state)
+        const newState = this.state.apply(tr)
+        this.updateState(newState)
 
-        if (collabClient.current) {
-          const sendable = sendableSteps(state)
-          if (sendable) {
-            collabClient.current.emit('transaction', sendable)
-          }
+        let sendable: ReturnType<typeof sendableSteps>
+        if (collabClient.current && (sendable = sendableSteps(newState))) {
+          this.updateState(
+            this.state.apply(
+              receiveTransaction(
+                this.state,
+                sendable.steps,
+                new Array(sendable.steps.length).fill(sendable.clientID)
+              )
+            )
+          )
+
+          collabClient.current.emit('transaction', {
+            version: getVersion(newState),
+            steps: sendable.steps,
+            clientID: sendable.clientID,
+          })
         }
 
         if (tr.docChanged) {
-          setDoc(state.doc)
+          setDoc(newState.doc)
         }
       }}
     />
