@@ -13,7 +13,8 @@ import { Step } from 'prosemirror-transform'
 import React, { useCallback, useEffect, useRef } from 'react'
 import { hot } from 'react-hot-loader/root'
 import { useUpdate } from 'react-use'
-import CollabClient, { CollabClientOptions } from './CollabClient'
+import { io, Socket } from 'socket.io-client'
+import { CollabOptions, DocJson, EmitEvents, ListenEvents } from './Collab'
 import Editor from './Editor'
 import Placeholder from './Editor/decorations/Placeholder'
 import Manager from './Editor/lib/Manager'
@@ -46,8 +47,8 @@ export const App = hot(() => {
   const editor = useRef<Editor>(null)
   const doc = useRef<Node>()
   const config = useRef<Config>()
-  const collabOptions = useRef<CollabClientOptions>()
-  const collabClient = useRef<CollabClient>()
+  const collabOptions = useRef<CollabOptions>()
+  const collabClient = useRef<Socket<ListenEvents, EmitEvents>>()
   const manager = useRef<Manager>()
 
   const setDoc = useCallback((v: Node) => {
@@ -157,7 +158,13 @@ export const App = hot(() => {
       if (!collabOptions.current) {
         newManager({ doc: e.doc })
       } else {
-        collabClient.current = new CollabClient(collabOptions.current)
+        collabClient.current = io(collabOptions.current.socketIoUri, {
+          query: {
+            accessToken: collabOptions.current.accessToken,
+            userId: collabOptions.current.userId,
+            paperId: collabOptions.current.paperId,
+          },
+        })
         collabClient.current.on('paper', ({ version, doc }) => {
           newManager({ doc, collab: { version } })
         })
@@ -171,7 +178,7 @@ export const App = hot(() => {
               steps.map(i => Step.fromJSON(schema, i)),
               clientIDs
             )
-            editor.current.editorView.updateState(state.apply(tr))
+            editorView.updateState(state.apply(tr))
           }
         })
       }
@@ -211,9 +218,11 @@ export const App = hot(() => {
         const state = this.state.apply(tr)
         this.updateState(state)
 
-        const sendable = sendableSteps(state)
-        if (sendable) {
-          collabClient.current?.transaction(sendable)
+        if (collabClient.current) {
+          const sendable = sendableSteps(state)
+          if (sendable) {
+            collabClient.current.emit('transaction', sendable)
+          }
         }
 
         if (tr.docChanged) {
@@ -234,8 +243,6 @@ const _Editor = styled(Editor)`
   }
 `
 
-export type DocJson = { [key: string]: any }
-
 export interface Config {
   readOnly?: boolean
   todoItemReadOnly?: boolean
@@ -255,7 +262,7 @@ export type MessageDataRecv =
   | {
       type: 'setState'
       doc?: DocJson
-      collab?: CollabClientOptions
+      collab?: CollabOptions
       config?: Config
     }
 
@@ -264,7 +271,7 @@ declare interface Message {
   on(event: 'saveState', listener: () => void): this
   on(
     event: 'setState',
-    listener: (state: { doc?: DocJson; collab?: CollabClientOptions; config?: Config }) => void
+    listener: (state: { doc?: DocJson; collab?: CollabOptions; config?: Config }) => void
   ): this
 }
 
@@ -307,5 +314,45 @@ class Message extends EventEmitter {
     } else if (window.parent !== window) {
       window.parent.postMessage(data, '*')
     }
+  }
+}
+
+if (process.env.NODE_ENV === 'development') {
+  const search = new URLSearchParams(window.location.search)
+  const socketIoUri = search.get('socketIoUri')
+  const accessToken = search.get('accessToken')
+  const userId = search.get('userId')
+  const paperId = search.get('paperId')
+
+  const collab: CollabOptions | undefined =
+    socketIoUri && accessToken && userId && paperId
+      ? {
+          socketIoUri,
+          accessToken,
+          userId,
+          paperId,
+        }
+      : undefined
+
+  const readOnly = search.get('readOnly')
+  const todoItemReadOnly = search.get('todoItemReadOnly')
+  const ipfsApi = search.get('ipfsApi')
+  const ipfsGateway = search.get('ipfsGateway')
+
+  const config: Config | undefined =
+    readOnly || todoItemReadOnly || ipfsApi || ipfsGateway
+      ? {
+          readOnly: readOnly === 'true' ? true : readOnly === 'false' ? false : undefined,
+          todoItemReadOnly:
+            todoItemReadOnly === 'true' ? true : todoItemReadOnly === 'false' ? false : undefined,
+          ipfsApi: ipfsApi || undefined,
+          ipfsGateway: ipfsGateway || undefined,
+        }
+      : undefined
+
+  if (collab || config) {
+    setTimeout(() => {
+      window.postMessage({ type: 'setState', config, collab }, '*')
+    })
   }
 }

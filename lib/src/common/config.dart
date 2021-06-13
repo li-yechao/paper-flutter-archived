@@ -29,9 +29,9 @@ class Config {
     return uri;
   }
 
-  static String get collabWebSocketUri {
-    final uri = const String.fromEnvironment('COLLAB_WEB_SOCKET_URI');
-    assert(uri.isNotEmpty, 'Required env COLLAB_WEB_SOCKET_URI is not present');
+  static String get collabSocketIoUri {
+    final uri = const String.fromEnvironment('COLLAB_SOCKET_IO_URI');
+    assert(uri.isNotEmpty, 'Required env COLLAB_SOCKET_IO_URI is not present');
     return uri;
   }
 }

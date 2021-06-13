@@ -40,7 +40,7 @@ class _PaperEditorPlatformState extends State<PaperEditorPlatform> {
         'ipfsGateway': Config.ipfsGateway,
       },
       'collab': {
-        'webSocketUri': Config.collabWebSocketUri,
+        'socketIoUri': Config.collabSocketIoUri,
         'userId': widget.userId,
         'paperId': widget.paperId,
         'accessToken': widget.accessToken,
