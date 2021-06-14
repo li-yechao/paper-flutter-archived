@@ -1,9 +1,9 @@
+import DotenvWebpackPlugin from 'dotenv-webpack'
+import ForkTsCheckerWebpackPlugin from 'fork-ts-checker-webpack-plugin'
+import HtmlWebpackPlugin from 'html-webpack-plugin'
+import MonacoEditorWebpackPlugin from 'monaco-editor-webpack-plugin'
 import path from 'path'
 import { Configuration } from 'webpack'
-import HtmlWebpackPlugin from 'html-webpack-plugin'
-import ForkTsCheckerWebpackPlugin from 'fork-ts-checker-webpack-plugin'
-import MonacoWebpackPlugin from 'monaco-editor-webpack-plugin'
-import Dotenv from 'dotenv-webpack'
 
 const cwd = process.cwd()
 
@@ -55,14 +55,14 @@ const configuration: Configuration = {
     ],
   },
   plugins: [
-    new Dotenv({
+    new DotenvWebpackPlugin({
       path: dotenvPath,
       defaults: true,
       silent: true,
     }),
     new HtmlWebpackPlugin({ template: 'index.html' }),
     new ForkTsCheckerWebpackPlugin(),
-    new MonacoWebpackPlugin({
+    new MonacoEditorWebpackPlugin({
       filename: 'js/[name].worker.js',
     }),
   ],

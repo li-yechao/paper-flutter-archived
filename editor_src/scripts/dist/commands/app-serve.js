@@ -4,9 +4,9 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.runAppServe = void 0;
-const path_1 = __importDefault(require("path"));
-const fs_1 = __importDefault(require("fs"));
 const child_process_1 = require("child_process");
+const fs_1 = __importDefault(require("fs"));
+const path_1 = __importDefault(require("path"));
 const portfinder_1 = __importDefault(require("portfinder"));
 function runAppServe(args) {
     let webpackBin = path_1.default.resolve(process.cwd(), 'node_modules/webpack/bin/webpack.js');

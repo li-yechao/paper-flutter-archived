@@ -3,11 +3,11 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-const path_1 = __importDefault(require("path"));
-const html_webpack_plugin_1 = __importDefault(require("html-webpack-plugin"));
-const fork_ts_checker_webpack_plugin_1 = __importDefault(require("fork-ts-checker-webpack-plugin"));
-const monaco_editor_webpack_plugin_1 = __importDefault(require("monaco-editor-webpack-plugin"));
 const dotenv_webpack_1 = __importDefault(require("dotenv-webpack"));
+const fork_ts_checker_webpack_plugin_1 = __importDefault(require("fork-ts-checker-webpack-plugin"));
+const html_webpack_plugin_1 = __importDefault(require("html-webpack-plugin"));
+const monaco_editor_webpack_plugin_1 = __importDefault(require("monaco-editor-webpack-plugin"));
+const path_1 = __importDefault(require("path"));
 const cwd = process.cwd();
 const dotenvPath = process.env.__DOTENV_PATH__ || undefined;
 const entry = process.env.__WEBPACK_ENTRY__;

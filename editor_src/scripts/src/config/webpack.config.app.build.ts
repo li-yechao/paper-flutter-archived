@@ -1,11 +1,11 @@
-import path from 'path'
-import { Configuration } from 'webpack'
-import HtmlWebpackPlugin from 'html-webpack-plugin'
-import TerserWebpackPlugin from 'terser-webpack-plugin'
 import { CleanWebpackPlugin } from 'clean-webpack-plugin'
-import MonacoWebpackPlugin from 'monaco-editor-webpack-plugin'
-import Dotenv from 'dotenv-webpack'
-import CopyWebpackPlugin from 'copy-webpack-plugin'
+import CopyPlugin from 'copy-webpack-plugin'
+import DotenvWebpackPlugin from 'dotenv-webpack'
+import HtmlWebpackPlugin from 'html-webpack-plugin'
+import MonacoEditorWebpackPlugin from 'monaco-editor-webpack-plugin'
+import path from 'path'
+import TerserPlugin from 'terser-webpack-plugin'
+import { Configuration } from 'webpack'
 
 const cwd = process.cwd()
 
@@ -57,14 +57,20 @@ const configuration: Configuration = {
     ],
   },
   plugins: [
-    new Dotenv({
+    new DotenvWebpackPlugin({
       path: dotenvPath,
       defaults: true,
       silent: true,
     }),
     new HtmlWebpackPlugin({ template: 'index.html' }),
     new CleanWebpackPlugin(),
-    new TerserWebpackPlugin({
+    new MonacoEditorWebpackPlugin({
+      filename: 'js/[name].worker.js',
+    }),
+    new CopyPlugin({
+      patterns: [{ from: 'static', to: 'static' }],
+    }) as any,
+    new TerserPlugin({
       parallel: true,
       terserOptions: {
         output: {
@@ -72,12 +78,6 @@ const configuration: Configuration = {
         },
       },
       extractComments: false,
-    }),
-    new MonacoWebpackPlugin({
-      filename: 'js/[name].worker.js',
-    }),
-    new CopyWebpackPlugin({
-      patterns: [{ from: 'static', to: 'static' }],
     }),
   ],
 }
