@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:paper/src/bloc/paper_mutation/paper_mutation_bloc.dart';
@@ -26,44 +28,68 @@ class UserPaperListProvider extends StatelessWidget {
         graphql: GraphQLInstance.client,
         userId: userId,
       )..add(UserPapersRequest()),
-      child: Builder(
-        builder: (context) {
-          return MultiBlocListener(
-            listeners: [
-              BlocListener<PaperMutationBloc, PaperMutationState>(
-                listenWhen: (previous, current) {
-                  return previous.createStatus != current.createStatus;
-                },
-                listener: (context, state) {
-                  if (state.createStatus == RequestStatus.success) {
-                    context
-                        .read<UserPapersBloc>()
-                        .add(UserPapersRequestNewly());
-                  }
-                },
-              ),
-              BlocListener<PaperMutationBloc, PaperMutationState>(
-                listenWhen: (previous, current) {
-                  return previous.deleteStatus != current.deleteStatus;
-                },
-                listener: (context, state) {
-                  if (state.deleteStatus == RequestStatus.success) {
-                    context.read<UserPapersBloc>()
-                      ..add(UserPapersDeleted(paperId: state.deletePaperId!))
-                      ..add(UserPapersRequestNewly());
-                  }
-                },
-              ),
-            ],
-            child: ScrollLoadListener(
-              onReachBottom: () {
-                context.read<UserPapersBloc>()..add(UserPapersRequest());
-              },
-              child: child,
-            ),
-          );
-        },
-      ),
+      child: _UserPapersListProvider(child: child),
+    );
+  }
+}
+
+class _UserPapersListProvider extends StatefulWidget {
+  final Widget child;
+
+  _UserPapersListProvider({
+    Key? key,
+    required this.child,
+  }) : super(key: key);
+
+  @override
+  __UserPapersListProviderState createState() =>
+      __UserPapersListProviderState();
+}
+
+class __UserPapersListProviderState extends State<_UserPapersListProvider> {
+  StreamSubscription? _createdSubscription;
+  StreamSubscription? _updatedSubscription;
+  StreamSubscription? _deletedSubscription;
+
+  @override
+  void initState() {
+    super.initState();
+
+    final paperMutationBloc = context.read<PaperMutationBloc>();
+    _createdSubscription = paperMutationBloc.createdSubject.listen((value) {
+      context.read<UserPapersBloc>().add(UserPapersRequestNewly());
+    });
+    _updatedSubscription = paperMutationBloc.updatedSubject.listen((value) {
+      context.read<UserPapersBloc>().add(UserPapersUpdated(
+            userId: value.userId,
+            paperId: value.paperId,
+          ));
+    });
+    _deletedSubscription = paperMutationBloc.deletedSubject.listen((value) {
+      context.read<UserPapersBloc>()
+        ..add(UserPapersDeleted(
+          userId: value.userId,
+          paperId: value.paperId,
+        ))
+        ..add(UserPapersRequestNewly());
+    });
+  }
+
+  @override
+  void dispose() {
+    _createdSubscription?.cancel();
+    _updatedSubscription?.cancel();
+    _deletedSubscription?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ScrollLoadListener(
+      onReachBottom: () {
+        context.read<UserPapersBloc>()..add(UserPapersRequest());
+      },
+      child: widget.child,
     );
   }
 }

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import 'package:paper/src/bloc/paper/paper_bloc.dart';
+import 'package:paper/src/bloc/paper_mutation/paper_mutation_bloc.dart';
 import 'package:paper/src/bloc/type.dart';
 import 'package:paper/src/common/config.dart';
 import 'package:paper/src/common/storage.dart';
@@ -43,11 +44,14 @@ class _PaperScreen extends StatefulWidget {
 
 class __PaperScreenState extends State<_PaperScreen> {
   final _controller = PaperEditorController();
+  bool _changed = false;
+  PaperMutationBloc? _paperMutationBloc;
 
   @override
   void initState() {
     super.initState();
 
+    _paperMutationBloc = context.read<PaperMutationBloc>();
     final paperBloc = context.read<PaperBloc>();
 
     Storage.token.then((token) {
@@ -62,6 +66,25 @@ class __PaperScreenState extends State<_PaperScreen> {
         );
       }
     });
+
+    _controller.addListener(() {
+      _changed = true;
+    });
+  }
+
+  @override
+  void dispose() {
+    super.dispose();
+
+    if (_changed) {
+      final config = _controller.config;
+      if (config != null) {
+        _paperMutationBloc?.updatedSubject.add(PaperUpdate(
+          userId: config.userId,
+          paperId: config.paperId,
+        ));
+      }
+    }
   }
 
   @override

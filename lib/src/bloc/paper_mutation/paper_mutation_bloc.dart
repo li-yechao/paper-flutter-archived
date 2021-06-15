@@ -1,15 +1,19 @@
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:graphql_flutter/graphql_flutter.dart';
-import 'package:paper/src/bloc/type.dart';
 import 'package:paper/src/bloc/user/user_bloc.dart';
 import 'package:paper/src/bloc/user_papers/user_papers_bloc.dart';
+import 'package:rxdart/subjects.dart';
 
 part 'paper_mutation_state.dart';
 part 'paper_mutation_event.dart';
 
 class PaperMutationBloc extends Bloc<PaperMutationEvent, PaperMutationState> {
   final GraphQLClient graphql;
+
+  final createdSubject = PublishSubject<Paper>();
+  final updatedSubject = PublishSubject<PaperUpdate>();
+  final deletedSubject = PublishSubject<PaperDelete>();
 
   PaperMutationBloc({
     required this.graphql,
@@ -18,22 +22,17 @@ class PaperMutationBloc extends Bloc<PaperMutationEvent, PaperMutationState> {
   @override
   Stream<PaperMutationState> mapEventToState(PaperMutationEvent event) async* {
     if (event is PaperCreate) {
-      yield* _mapPaperCreateToState(state, event);
+      yield* _mapPaperCreateToState(event);
+    } else if (event is PaperUpdate) {
+      yield* _mapPaperUpdateToState(event);
     } else if (event is PaperDelete) {
-      yield* _mapPaperDeleteToState(state, event);
+      yield* _mapPaperDeleteToState(event);
     }
   }
 
   Stream<PaperMutationState> _mapPaperCreateToState(
-    PaperMutationState state,
     PaperCreate event,
   ) async* {
-    yield state.copyWith(
-      createStatus: RequestStatus.initial,
-      createError: null,
-      createPaper: null,
-    );
-
     try {
       final result = await graphql.mutate(
         MutationOptions(
@@ -72,33 +71,27 @@ class PaperMutationBloc extends Bloc<PaperMutationEvent, PaperMutationState> {
       if (result.hasException) {
         throw result.exception!;
       }
-      yield state.copyWith(
-        createStatus: RequestStatus.success,
-        createPaper: Paper.fromJson(
-          json: result.data!['createPaper'],
-          user: User.fromJson(
-            result.data!['createPaper']['user'],
-          ),
+      final paper = Paper.fromJson(
+        json: result.data!['createPaper'],
+        user: User.fromJson(
+          result.data!['createPaper']['user'],
         ),
       );
+      createdSubject.add(paper);
     } catch (error) {
-      yield state.copyWith(
-        createStatus: RequestStatus.failure,
-        createError: error,
-      );
+      createdSubject.addError(error);
     }
   }
 
+  Stream<PaperMutationState> _mapPaperUpdateToState(
+    PaperUpdate event,
+  ) async* {
+    updatedSubject.add(event);
+  }
+
   Stream<PaperMutationState> _mapPaperDeleteToState(
-    PaperMutationState state,
     PaperDelete event,
   ) async* {
-    yield state.copyWith(
-      deleteStatus: RequestStatus.initial,
-      deleteError: null,
-      deletePaperId: null,
-    );
-
     try {
       final result = await graphql.mutate(
         MutationOptions(
@@ -126,15 +119,17 @@ class PaperMutationBloc extends Bloc<PaperMutationEvent, PaperMutationState> {
       if (result.hasException) {
         throw result.exception!;
       }
-      yield state.copyWith(
-        deleteStatus: RequestStatus.success,
-        deletePaperId: result.data!['deletePaper']['id'],
-      );
+      deletedSubject.add(event);
     } catch (error) {
-      yield state.copyWith(
-        deleteStatus: RequestStatus.failure,
-        deleteError: error,
-      );
+      deletedSubject.addError(error);
     }
+  }
+
+  @override
+  Future<void> close() {
+    createdSubject.close();
+    updatedSubject.close();
+    deletedSubject.close();
+    return super.close();
   }
 }

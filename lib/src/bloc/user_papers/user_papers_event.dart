@@ -10,13 +10,15 @@ class UserPapersRequest extends UserPapersEvent {}
 class UserPapersRequestNewly extends UserPapersEvent {}
 
 class UserPapersUpdated extends UserPapersEvent {
-  final Paper paper;
+  final String userId;
+  final String paperId;
 
-  UserPapersUpdated({required this.paper});
+  UserPapersUpdated({required this.userId, required this.paperId});
 }
 
 class UserPapersDeleted extends UserPapersEvent {
+  final String userId;
   final String paperId;
 
-  UserPapersDeleted({required this.paperId});
+  UserPapersDeleted({required this.userId, required this.paperId});
 }

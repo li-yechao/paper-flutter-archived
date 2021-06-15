@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import 'package:paper/src/bloc/paper_mutation/paper_mutation_bloc.dart';
-import 'package:paper/src/bloc/type.dart';
 import 'package:paper/src/bloc/user_papers/user_papers_bloc.dart';
 import 'package:paper/src/extensions/extensions.dart';
 import 'package:paper/src/router/app.dart';
@@ -17,33 +16,23 @@ class UserPaperListPlatform extends StatelessWidget {
     final total = papersBloc.state.total;
     final edges = papersBloc.state.edges;
 
-    return BlocListener<PaperMutationBloc, PaperMutationState>(
-      listenWhen: (previous, current) {
-        return previous.createStatus != current.createStatus;
-      },
-      listener: (context, state) {
-        if (state.createStatus == RequestStatus.success) {
-          papersBloc.add(UserPapersRequestNewly());
-        }
-      },
-      child: SliverList(
-        delegate: SliverChildBuilderDelegate(
-          (context, index) {
-            if (index >= edges.length) {
-              return ListFooter(
-                status: status,
-                noMore: edges.length >= (total ?? 0),
-              );
-            }
-
-            final paper = edges[index].node;
-
-            return PaperItem(
-              paper: paper,
+    return SliverList(
+      delegate: SliverChildBuilderDelegate(
+        (context, index) {
+          if (index >= edges.length) {
+            return ListFooter(
+              status: status,
+              noMore: edges.length >= (total ?? 0),
             );
-          },
-          childCount: edges.length + 1,
-        ),
+          }
+
+          final paper = edges[index].node;
+
+          return PaperItem(
+            paper: paper,
+          );
+        },
+        childCount: edges.length + 1,
       ),
     );
   }

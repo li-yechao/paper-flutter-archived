@@ -35,15 +35,8 @@ class UserPapersBloc extends Bloc<UserPapersEvent, UserPapersState> {
     } else if (event is UserPapersRequestNewly) {
       yield* _mapUserPapersRequestNewlyToState(state);
     } else if (event is UserPapersUpdated) {
-      final index = state.edges
-          .indexWhere((element) => element.node.id == event.paper.id);
-      if (index >= 0) {
-        state.edges[index] = Edge(
-          cursor: state.edges[index].cursor,
-          node: event.paper,
-        );
-        yield state;
-      }
+      yield* _mapUserPapersUpdatedToState(state, event);
+      yield* _mapUserPapersRequestNewlyToState(state);
     } else if (event is UserPapersDeleted) {
       state.edges.removeWhere((element) => element.node.id == event.paperId);
       yield state;
@@ -108,6 +101,26 @@ class UserPapersBloc extends Bloc<UserPapersEvent, UserPapersState> {
     }
   }
 
+  Stream<UserPapersState> _mapUserPapersUpdatedToState(
+    UserPapersState state,
+    UserPapersUpdated e,
+  ) async* {
+    try {
+      final paper = await _queryUserPaper(userId: e.userId, paperId: e.paperId);
+      final index =
+          state.edges.indexWhere((element) => element.node.id == paper.id);
+      if (index >= 0) {
+        state.edges[index] = Edge(
+          cursor: state.edges[index].cursor,
+          node: paper,
+        );
+        yield state;
+      }
+    } catch (error) {
+      print(error);
+    }
+  }
+
   Future<Tuple2<List<Edge<Paper>>, int>> _queryUserPapers({
     required String userId,
     int? first,
@@ -118,7 +131,6 @@ class UserPapersBloc extends Bloc<UserPapersEvent, UserPapersState> {
   }) async {
     final result = await graphql.query(
       QueryOptions(
-        fetchPolicy: FetchPolicy.noCache,
         document: gql(
           r"""
           query UserPapers(
@@ -183,5 +195,48 @@ class UserPapersBloc extends Bloc<UserPapersEvent, UserPapersState> {
         )
         .toList();
     return Tuple2(edges, result.data!['user']['papers']['total']);
+  }
+
+  Future<Paper> _queryUserPaper({
+    required String userId,
+    required String paperId,
+  }) async {
+    final result = await graphql.query(
+      QueryOptions(
+        document: gql(
+          r"""
+          query User(
+            $userId: String!
+            $paperId: String!
+          ) {
+            user(identifier: {id: $userId}) {
+              id
+              createdAt
+              name
+
+              paper(paperId: $paperId) {
+                id
+                createdAt
+                updatedAt
+                title
+                canViewerWritePaper
+              }
+            }
+          }
+          """,
+        ),
+        variables: {
+          'userId': userId,
+          'paperId': paperId,
+        },
+      ),
+    );
+    if (result.hasException) {
+      throw result.exception!;
+    }
+    return Paper.fromJson(
+      json: result.data!['user']['paper'],
+      user: User.fromJson(result.data!['user']),
+    );
   }
 }

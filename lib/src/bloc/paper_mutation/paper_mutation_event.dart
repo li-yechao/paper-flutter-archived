@@ -13,6 +13,16 @@ class PaperCreate extends PaperMutationEvent {
   });
 }
 
+class PaperUpdate extends PaperMutationEvent {
+  final String userId;
+  final String paperId;
+
+  PaperUpdate({
+    required this.userId,
+    required this.paperId,
+  });
+}
+
 class PaperDelete extends PaperMutationEvent {
   final String userId;
   final String paperId;

@@ -62,6 +62,11 @@ extension GraphQLInstance on GraphQLClient {
       _client = GraphQLClient(
         link: refreshTokenLink.concat(httpLink),
         cache: GraphQLCache(),
+        defaultPolicies: DefaultPolicies(
+          query: Policies(
+            fetch: FetchPolicy.noCache,
+          ),
+        ),
       );
     }
     return _client!;
