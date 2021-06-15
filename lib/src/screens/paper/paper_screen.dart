@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import 'package:paper/src/bloc/paper/paper_bloc.dart';
 import 'package:paper/src/bloc/type.dart';
+import 'package:paper/src/common/config.dart';
 import 'package:paper/src/common/storage.dart';
 import 'package:paper/src/extensions/extensions.dart';
 import 'package:paper/src/graphql/client.dart';
@@ -74,14 +75,10 @@ class PaperScreen extends StatelessWidget {
                   );
                 }
                 return paperState.status == RequestStatus.success
-                    ? PaperEditor(
+                    ? _PaperEditor(
                         accessToken: snapshot.data!.accessToken,
                         userId: userId,
                         paperId: paperId,
-                        readOnly:
-                            !(paperState.paper?.canViewerWritePaper == true),
-                        todoItemReadOnly:
-                            !(paperState.paper?.canViewerWritePaper == true),
                       )
                     : paperState.status == RequestStatus.failure
                         ? Center(
@@ -95,6 +92,47 @@ class PaperScreen extends StatelessWidget {
           );
         },
       ),
+    );
+  }
+}
+
+class _PaperEditor extends StatefulWidget {
+  final String accessToken;
+  final String userId;
+  final String paperId;
+
+  _PaperEditor({
+    Key? key,
+    required this.accessToken,
+    required this.userId,
+    required this.paperId,
+  }) : super(key: key);
+
+  @override
+  __PaperEditorState createState() => __PaperEditorState();
+}
+
+class __PaperEditorState extends State<_PaperEditor> {
+  late final PaperEditorController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+
+    _controller = PaperEditorController(
+      ipfsApi: Config.ipfsApi,
+      ipfsGateway: Config.ipfsGateway,
+      collabSocketIoUri: Config.collabSocketIoUri,
+      accessToken: widget.accessToken,
+      userId: widget.userId,
+      paperId: widget.paperId,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return PaperEditor(
+      controller: _controller,
     );
   }
 }

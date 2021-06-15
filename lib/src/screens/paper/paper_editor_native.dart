@@ -1,56 +1,40 @@
-import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
-import 'package:paper/src/common/config.dart';
-import 'package:paper/src/extensions/extensions.dart';
+import 'package:paper/src/screens/paper/paper_editor.dart';
 
 class PaperEditorPlatform extends StatefulWidget {
-  final String accessToken;
-  final String userId;
-  final String paperId;
-  final bool readOnly;
-  final bool todoItemReadOnly;
+  final PaperEditorController controller;
 
   PaperEditorPlatform({
     Key? key,
-    required this.accessToken,
-    required this.userId,
-    required this.paperId,
-    required this.readOnly,
-    required this.todoItemReadOnly,
+    required this.controller,
   }) : super(key: key);
 
   @override
   _PaperEditorPlatformState createState() => _PaperEditorPlatformState();
 }
 
-class _PaperEditorPlatformState extends State<PaperEditorPlatform> {
+class _PaperEditorPlatformState extends State<PaperEditorPlatform>
+    implements Messager {
   InAppWebViewController? _controller;
 
-  void _postSetState() async {
-    await _postMessage({
-      'type': 'setState',
-      'config': {
-        'readOnly': widget.readOnly,
-        'todoItemReadOnly': widget.todoItemReadOnly,
-        'ipfsApi': Config.ipfsApi,
-        'ipfsGateway': Config.ipfsGateway,
-      },
-      'collab': {
-        'socketIoUri': Config.collabSocketIoUri,
-        'userId': widget.userId,
-        'paperId': widget.paperId,
-        'accessToken': widget.accessToken,
-      },
-    });
+  get initialFile {
+    return widget.controller.editorUri.replaceFirst(RegExp('^/assets/'), '');
   }
 
-  Future<void> _postMessage(dynamic msg) async {
-    final str = jsonEncode(msg);
-    await _controller?.evaluateJavascript(
+  @override
+  void initState() {
+    super.initState();
+    widget.controller.messager = this;
+  }
+
+  @override
+  postMessage(e) {
+    final str = jsonEncode(e);
+    _controller?.evaluateJavascript(
       source: 'window.postMessage($str, "*")',
     );
   }
@@ -62,7 +46,7 @@ class _PaperEditorPlatformState extends State<PaperEditorPlatform> {
         crossPlatform: InAppWebViewOptions(transparentBackground: true),
         ios: IOSInAppWebViewOptions(allowsInlineMediaPlayback: true),
       ),
-      initialFile: 'editor/index.html',
+      initialFile: initialFile,
       onConsoleMessage: (controller, message) {
         if (kDebugMode) {
           print(message.message);
@@ -72,13 +56,8 @@ class _PaperEditorPlatformState extends State<PaperEditorPlatform> {
         _controller = controller;
         controller.addJavaScriptHandler(
           handlerName: 'postMessage',
-          callback: (args) {
-            final data = args.firstOrNull;
-            switch (data?['type']) {
-              case 'editorReady':
-                _postSetState();
-                break;
-            }
+          callback: (e) {
+            widget.controller.onMessage(e);
           },
         );
       },

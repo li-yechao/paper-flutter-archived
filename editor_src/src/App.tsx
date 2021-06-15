@@ -1,6 +1,4 @@
 import styled from '@emotion/styled'
-import { useHotkey } from '@react-hook/hotkey'
-import EventEmitter from 'events'
 import { collab, getVersion, receiveTransaction, sendableSteps } from 'prosemirror-collab'
 import { baseKeymap } from 'prosemirror-commands'
 import { dropCursor } from 'prosemirror-dropcursor'
@@ -8,13 +6,12 @@ import { gapCursor } from 'prosemirror-gapcursor'
 import { undo, redo, history } from 'prosemirror-history'
 import { undoInputRule } from 'prosemirror-inputrules'
 import { keymap } from 'prosemirror-keymap'
-import { Node } from 'prosemirror-model'
+import { Transaction } from 'prosemirror-state'
 import { Step } from 'prosemirror-transform'
-import React, { useCallback, useEffect, useRef } from 'react'
+import React from 'react'
+import { createRef } from 'react'
 import { hot } from 'react-hot-loader/root'
-import { useUpdate } from 'react-use'
 import { io, Socket } from 'socket.io-client'
-import { CollabOptions, DocJson, EmitEvents, ListenEvents } from './Collab'
 import Editor from './Editor'
 import Placeholder from './Editor/decorations/Placeholder'
 import Manager from './Editor/lib/Manager'
@@ -40,25 +37,103 @@ import TodoList from './Editor/nodes/TodoList'
 import VideoBlock from './Editor/nodes/VideoBlock'
 import DropPasteFile from './Editor/plugins/DropPasteFile'
 import Plugins from './Editor/plugins/Plugins'
+import Messager from './Messager'
 import { notEmpty } from './utils/array'
 
+export interface Config {
+  collab?: CollabConfig
+  ipfsApi?: string
+  ipfsGateway?: string
+}
+
+export type CollabConfig = {
+  socketIoUri: string
+  userId: string
+  paperId: string
+  accessToken: string
+}
+
+export interface MessagerEmitEvents {
+  ready: () => void
+}
+
+export interface MessagerReservedEvents {
+  init: (config?: Config) => void
+}
+
+export type Version = number
+
+export type DocJson = { [key: string]: any }
+
+export type ClientID = string | number
+
+export interface CollabEmitEvents {
+  transaction: (e: { version: Version; steps: DocJson[]; clientID: ClientID }) => void
+}
+
+export interface CollabListenEvents {
+  paper: (e: { version: Version; doc: DocJson }) => void
+  transaction: (e: { version: Version; steps: DocJson[]; clientIDs: ClientID[] }) => void
+}
+
 export const App = hot(() => {
-  const update = useUpdate()
-  const editor = useRef<Editor>(null)
-  const doc = useRef<Node>()
-  const config = useRef<Config>()
-  const collabOptions = useRef<CollabOptions>()
-  const collabClient = useRef<Socket<ListenEvents, EmitEvents>>()
-  const manager = useRef<Manager>()
+  return <_App />
+})
 
-  const setDoc = useCallback((v: Node) => {
-    doc.current = v
-    update()
-    Message.instance.stateChange()
-  }, [])
+class _App extends React.PureComponent<{}> {
+  private config?: Config
 
-  const newManager = useCallback((e: { doc?: DocJson; collab?: { version?: number } }) => {
-    const { ipfsApi, ipfsGateway } = config.current || {}
+  private messager = new Messager<{}, MessagerEmitEvents, MessagerReservedEvents>()
+
+  private editor = createRef<Editor>()
+
+  private manager?: Manager
+
+  private collabClient?: Socket<CollabListenEvents, CollabEmitEvents>
+
+  private get editorView() {
+    return this.editor.current?.editorView
+  }
+
+  constructor(props: {}) {
+    super(props)
+
+    this.messager.on('init', config => {
+      this.config = config
+
+      if (!this.config?.collab) {
+        this.initManager({})
+        return
+      }
+
+      const { socketIoUri, accessToken, userId, paperId } = this.config.collab
+      this.collabClient = io(socketIoUri, { query: { accessToken, userId, paperId } })
+      this.collabClient.on('paper', ({ version, doc }) => {
+        this.initManager({ doc, collab: { version } })
+      })
+      this.collabClient.on('transaction', ({ steps, clientIDs }) => {
+        const { editorView } = this
+        if (editorView) {
+          const { state } = editorView
+          const tr = receiveTransaction(
+            state,
+            steps.map(i => Step.fromJSON(state.schema, i)),
+            clientIDs
+          )
+          editorView.updateState(state.apply(tr))
+        }
+      })
+    })
+
+    this.messager.emit('ready')
+  }
+
+  componentWillUnmount() {
+    this.messager.dispose()
+  }
+
+  private initManager(e: { doc?: DocJson; collab?: { version: Version } }) {
+    const { ipfsApi, ipfsGateway } = this.config || {}
     const uploadOptions =
       ipfsApi && ipfsGateway
         ? {
@@ -91,7 +166,7 @@ export const App = hot(() => {
       new Heading(),
       new Blockquote(),
       new TodoList(),
-      new TodoItem({ todoItemReadOnly: config.current?.todoItemReadOnly }),
+      new TodoItem(),
       new OrderedList(),
       new BulletList(),
       new ListItem(),
@@ -144,106 +219,55 @@ export const App = hot(() => {
       }),
     ]
 
-    manager.current = new Manager(extensions.filter(notEmpty), e.doc)
-    doc.current = manager.current.state.doc
-
-    update()
-  }, [])
-
-  useEffect(() => {
-    Message.instance.on('setState', e => {
-      config.current = e.config
-      collabOptions.current = e.collab
-
-      if (!collabOptions.current) {
-        newManager({ doc: e.doc })
-      } else {
-        collabClient.current = io(collabOptions.current.socketIoUri, {
-          query: {
-            accessToken: collabOptions.current.accessToken,
-            userId: collabOptions.current.userId,
-            paperId: collabOptions.current.paperId,
-          },
-        })
-        collabClient.current.on('paper', ({ version, doc }) => {
-          newManager({ doc, collab: { version } })
-        })
-        collabClient.current.on('transaction', ({ steps, clientIDs }) => {
-          if (manager.current && editor.current?.editorView) {
-            const { schema } = manager.current
-            const { editorView } = editor.current
-            const { state } = editorView
-            const tr = receiveTransaction(
-              state,
-              steps.map(i => Step.fromJSON(schema, i)),
-              clientIDs
-            )
-            editorView.updateState(state.apply(tr))
-          }
-        })
-      }
-    })
-
-    Message.instance.on('getState', () => {
-      doc.current && Message.instance.getState(doc.current.toJSON())
-    })
-
-    Message.instance.on('saveState', () => {
-      doc.current && Message.instance.saveState(doc.current.toJSON())
-    })
-
-    Message.instance.editorReady()
-
-    return () => {
-      Message.instance.removeAllListeners()
-    }
-  }, [])
-
-  useHotkey(window, ['mod', 's'], e => {
-    e.preventDefault()
-    doc.current && Message.instance.saveState(doc.current.toJSON())
-  })
-
-  if (!manager.current) {
-    return null
+    this.manager = new Manager(extensions.filter(notEmpty), e.doc)
+    this.forceUpdate()
   }
 
-  return (
-    <_Editor
-      ref={editor}
-      readOnly={config.current?.readOnly}
-      autoFocus
-      manager={manager.current}
-      dispatchTransaction={function (tr) {
-        const newState = this.state.apply(tr)
-        this.updateState(newState)
+  private dispatchTransaction = (tr: Transaction) => {
+    const { editorView, collabClient } = this
+    if (!editorView) {
+      return
+    }
+    const newState = editorView.state.apply(tr)
+    editorView.updateState(newState)
 
-        let sendable: ReturnType<typeof sendableSteps>
-        if (collabClient.current && (sendable = sendableSteps(newState))) {
-          this.updateState(
-            this.state.apply(
-              receiveTransaction(
-                this.state,
-                sendable.steps,
-                new Array(sendable.steps.length).fill(sendable.clientID)
-              )
-            )
+    let sendable: ReturnType<typeof sendableSteps>
+    if (collabClient && (sendable = sendableSteps(newState))) {
+      editorView.updateState(
+        editorView.state.apply(
+          receiveTransaction(
+            editorView.state,
+            sendable.steps,
+            new Array(sendable.steps.length).fill(sendable.clientID)
           )
+        )
+      )
 
-          collabClient.current.emit('transaction', {
-            version: getVersion(newState),
-            steps: sendable.steps,
-            clientID: sendable.clientID,
-          })
-        }
+      collabClient.emit('transaction', {
+        version: getVersion(newState),
+        steps: sendable.steps,
+        clientID: sendable.clientID,
+      })
+    }
+  }
 
-        if (tr.docChanged) {
-          setDoc(newState.doc)
-        }
-      }}
-    />
-  )
-})
+  render() {
+    const { editor, manager } = this
+
+    if (!manager) {
+      return null
+    }
+
+    return (
+      <_Editor
+        ref={editor}
+        autoFocus
+        manager={manager}
+        dispatchTransaction={this.dispatchTransaction}
+      />
+    )
+  }
+}
 
 const _Editor = styled(Editor)`
   .ProseMirror {
@@ -255,80 +279,6 @@ const _Editor = styled(Editor)`
   }
 `
 
-export interface Config {
-  readOnly?: boolean
-  todoItemReadOnly?: boolean
-  ipfsApi?: string
-  ipfsGateway?: string
-}
-
-export type MessageDataSend =
-  | { type: 'editorReady' }
-  | { type: 'stateChange' }
-  | { type: 'saveState'; doc: DocJson }
-  | { type: 'getState'; doc: DocJson }
-
-export type MessageDataRecv =
-  | { type: 'getState' }
-  | { type: 'saveState' }
-  | {
-      type: 'setState'
-      doc?: DocJson
-      collab?: CollabOptions
-      config?: Config
-    }
-
-declare interface Message {
-  on(event: 'getState', listener: () => void): this
-  on(event: 'saveState', listener: () => void): this
-  on(
-    event: 'setState',
-    listener: (state: { doc?: DocJson; collab?: CollabOptions; config?: Config }) => void
-  ): this
-}
-
-class Message extends EventEmitter {
-  static readonly instance = new Message()
-
-  constructor() {
-    super()
-    window.addEventListener('message', this.recvMessage)
-  }
-
-  editorReady() {
-    this.postMessage({ type: 'editorReady' })
-  }
-
-  stateChange() {
-    this.postMessage({ type: 'stateChange' })
-  }
-
-  saveState(doc: DocJson) {
-    this.postMessage({ type: 'saveState', doc })
-  }
-
-  getState(doc: DocJson) {
-    this.postMessage({ type: 'getState', doc })
-  }
-
-  dispose() {
-    window.removeEventListener('message', this.recvMessage)
-  }
-
-  private recvMessage = (e: MessageEvent<MessageDataRecv>) => {
-    this.emit(e.data.type, e.data)
-  }
-
-  private postMessage(data: MessageDataSend) {
-    const inAppWebView = (window as any).flutter_inappwebview
-    if (typeof inAppWebView !== 'undefined') {
-      inAppWebView.callHandler('postMessage', data)
-    } else if (window.parent !== window) {
-      window.parent.postMessage(data, '*')
-    }
-  }
-}
-
 if (process.env.NODE_ENV === 'development') {
   const search = new URLSearchParams(window.location.search)
   const socketIoUri = search.get('socketIoUri')
@@ -336,7 +286,7 @@ if (process.env.NODE_ENV === 'development') {
   const userId = search.get('userId')
   const paperId = search.get('paperId')
 
-  const collab: CollabOptions | undefined =
+  const collab: CollabConfig | undefined =
     socketIoUri && accessToken && userId && paperId
       ? {
           socketIoUri,
@@ -346,25 +296,21 @@ if (process.env.NODE_ENV === 'development') {
         }
       : undefined
 
-  const readOnly = search.get('readOnly')
-  const todoItemReadOnly = search.get('todoItemReadOnly')
   const ipfsApi = search.get('ipfsApi')
   const ipfsGateway = search.get('ipfsGateway')
 
   const config: Config | undefined =
-    readOnly || todoItemReadOnly || ipfsApi || ipfsGateway
+    collab || ipfsApi || ipfsGateway
       ? {
-          readOnly: readOnly === 'true' ? true : readOnly === 'false' ? false : undefined,
-          todoItemReadOnly:
-            todoItemReadOnly === 'true' ? true : todoItemReadOnly === 'false' ? false : undefined,
           ipfsApi: ipfsApi || undefined,
           ipfsGateway: ipfsGateway || undefined,
+          collab,
         }
       : undefined
 
-  if (collab || config) {
+  if (config) {
     setTimeout(() => {
-      window.postMessage({ type: 'setState', config, collab }, '*')
+      window.postMessage(['init', config], '*')
     })
   }
 }

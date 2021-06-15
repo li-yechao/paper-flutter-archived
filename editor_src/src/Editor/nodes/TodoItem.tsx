@@ -4,7 +4,7 @@ import { splitListItem } from 'prosemirror-schema-list'
 import Node, { NodeViewCreator } from './Node'
 
 export default class TodoItem extends Node {
-  constructor(private options: { readonly todoItemReadOnly?: boolean }) {
+  constructor(private options: { readonly todoItemReadOnly?: boolean } = {}) {
     super()
   }
 

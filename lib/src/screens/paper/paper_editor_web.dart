@@ -3,32 +3,24 @@ import 'dart:html';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
-import 'package:paper/src/common/config.dart';
+import 'package:paper/src/screens/paper/paper_editor.dart';
 
 class PaperEditorPlatform extends StatefulWidget {
-  final String accessToken;
-  final String userId;
-  final String paperId;
-  final bool readOnly;
-  final bool todoItemReadOnly;
+  final PaperEditorController controller;
 
   PaperEditorPlatform({
     Key? key,
-    required this.accessToken,
-    required this.userId,
-    required this.paperId,
-    required this.readOnly,
-    required this.todoItemReadOnly,
+    required this.controller,
   }) : super(key: key);
 
   @override
   _PaperEditorPlatformState createState() => _PaperEditorPlatformState();
 }
 
-class _PaperEditorPlatformState extends State<PaperEditorPlatform> {
+class _PaperEditorPlatformState extends State<PaperEditorPlatform>
+    implements Messager {
   final _viewType = 'paper-editor';
   final _frame = IFrameElement();
-  WindowBase? _window;
   late final Function(Event) _messageHandler;
 
   @override
@@ -39,55 +31,28 @@ class _PaperEditorPlatformState extends State<PaperEditorPlatform> {
     ui.platformViewRegistry.registerViewFactory(
       _viewType,
       (int viewId) => _frame
-        ..src = '/assets/editor/index.html'
+        ..src = widget.controller.editorUri
         ..style.border = 'none',
     );
 
-    _initMessage();
-    _postSetState();
-  }
+    widget.controller.messager = this;
 
-  @override
-  void dispose() {
-    _cleanMessage();
-    super.dispose();
-  }
-
-  void _postSetState() {
-    _window?.postMessage({
-      'type': 'setState',
-      'config': {
-        'readOnly': widget.readOnly,
-        'todoItemReadOnly': widget.todoItemReadOnly,
-        'ipfsApi': Config.ipfsApi,
-        'ipfsGateway': Config.ipfsGateway,
-      },
-      'collab': {
-        'socketIoUri': Config.collabSocketIoUri,
-        'userId': widget.userId,
-        'paperId': widget.paperId,
-        'accessToken': widget.accessToken,
-      },
-    }, '*');
-  }
-
-  void _initMessage() {
     _messageHandler = (e) {
       e as MessageEvent;
-      switch (e.data['type']) {
-        case 'editorReady':
-          if (e.source != null) {
-            _window = e.source as WindowBase;
-            _postSetState();
-          }
-          break;
-      }
+      widget.controller.onMessage(e.data);
     };
     window.addEventListener('message', _messageHandler);
   }
 
-  void _cleanMessage() {
+  @override
+  void dispose() {
+    super.dispose();
     window.removeEventListener('message', _messageHandler);
+  }
+
+  @override
+  postMessage(e) {
+    _frame.contentWindow?.postMessage(e, '*');
   }
 
   @override
