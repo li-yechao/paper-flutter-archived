@@ -6,6 +6,7 @@ import { gapCursor } from 'prosemirror-gapcursor'
 import { undo, redo, history } from 'prosemirror-history'
 import { undoInputRule } from 'prosemirror-inputrules'
 import { keymap } from 'prosemirror-keymap'
+import { Node } from 'prosemirror-model'
 import { Transaction } from 'prosemirror-state'
 import { Step } from 'prosemirror-transform'
 import React from 'react'
@@ -55,6 +56,9 @@ export type CollabConfig = {
 
 export interface MessagerEmitEvents {
   ready: () => void
+  persistence: (e: { version: Version; updatedAt: number }) => void
+  change: (e: { version: Version }) => void
+  titleChange: (e: { title: string }) => void
 }
 
 export interface MessagerReservedEvents {
@@ -74,6 +78,7 @@ export interface CollabEmitEvents {
 export interface CollabListenEvents {
   paper: (e: { version: Version; doc: DocJson }) => void
   transaction: (e: { version: Version; steps: DocJson[]; clientIDs: ClientID[] }) => void
+  persistence: (e: { version: Version; updatedAt: number }) => void
 }
 
 export const App = hot(() => {
@@ -90,6 +95,14 @@ class _App extends React.PureComponent<{}> {
   private manager?: Manager
 
   private collabClient?: Socket<CollabListenEvents, CollabEmitEvents>
+
+  private _title?: string
+  private set title(title: string) {
+    if (this._title !== title) {
+      this._title = title
+      this.messager.emit('titleChange', { title })
+    }
+  }
 
   private get editorView() {
     return this.editor.current?.editorView
@@ -123,6 +136,7 @@ class _App extends React.PureComponent<{}> {
           editorView.updateState(state.apply(tr))
         }
       })
+      this.collabClient.on('persistence', e => this.messager.emit('persistence', e))
     })
 
     this.messager.emit('ready')
@@ -249,6 +263,21 @@ class _App extends React.PureComponent<{}> {
         clientID: sendable.clientID,
       })
     }
+
+    if (tr.docChanged) {
+      const version = getVersion(editorView.state)
+      this.messager.emit('change', { version })
+
+      const title = this.getDocTitle(this.editorView?.state.doc)
+      if (title !== undefined) {
+        this.title = title
+      }
+    }
+  }
+
+  private getDocTitle(doc?: Node) {
+    const titleNode = doc?.firstChild?.type.name === 'title' ? doc.firstChild : undefined
+    return titleNode?.textContent
   }
 
   render() {

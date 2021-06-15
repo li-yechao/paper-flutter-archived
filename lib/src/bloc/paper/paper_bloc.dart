@@ -51,7 +51,6 @@ class PaperBloc extends Bloc<PaperEvent, PaperState> {
                   createdAt
                   updatedAt
                   title
-                  content
                   canViewerWritePaper
                 }
               }
@@ -67,7 +66,7 @@ class PaperBloc extends Bloc<PaperEvent, PaperState> {
       if (result.hasException) {
         throw result.exception!;
       }
-      final paper = PaperWithContent.fromJson(
+      final paper = Paper.fromJson(
         json: result.data!['user']['paper'],
         user: User.fromJson(result.data!['user']),
       );

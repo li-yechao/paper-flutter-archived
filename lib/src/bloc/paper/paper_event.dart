@@ -8,7 +8,7 @@ abstract class PaperEvent extends Equatable {
 class PaperRequest extends PaperEvent {}
 
 class PaperUpdated extends PaperEvent {
-  final PaperWithContent paper;
+  final Paper paper;
 
   PaperUpdated({required this.paper});
 }

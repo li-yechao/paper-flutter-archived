@@ -44,18 +44,6 @@ class UserPaperListProvider extends StatelessWidget {
               ),
               BlocListener<PaperMutationBloc, PaperMutationState>(
                 listenWhen: (previous, current) {
-                  return previous.updateStatus != current.updateStatus;
-                },
-                listener: (context, state) {
-                  if (state.updateStatus == RequestStatus.success) {
-                    context.read<UserPapersBloc>()
-                      ..add(UserPapersUpdated(paper: state.updatePaper!))
-                      ..add(UserPapersRequestNewly());
-                  }
-                },
-              ),
-              BlocListener<PaperMutationBloc, PaperMutationState>(
-                listenWhen: (previous, current) {
                   return previous.deleteStatus != current.deleteStatus;
                 },
                 listener: (context, state) {

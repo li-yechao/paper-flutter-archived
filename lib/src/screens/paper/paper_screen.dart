@@ -29,145 +29,125 @@ class PaperScreen extends StatelessWidget {
         userId: userId,
         paperId: paperId,
       )..add(PaperRequest()),
-      child: Builder(
-        builder: (context) {
-          final paperState = context.watch<PaperBloc>().state;
+      child: _PaperScreen(),
+    );
+  }
+}
 
-          return Scaffold(
-            appBar: AppBar(
-              centerTitle: false,
-              title: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text((paperState.paper?.title).blankOr('Untitled')),
-                  if (paperState.paper != null)
-                    Row(
-                      children: [
-                        Flexible(
-                          child: Text(
-                            DateFormat().format(
-                              DateTime.fromMillisecondsSinceEpoch(
-                                int.parse(paperState.paper!.updatedAt),
-                              ),
+class _PaperScreen extends StatefulWidget {
+  const _PaperScreen({Key? key}) : super(key: key);
+
+  @override
+  __PaperScreenState createState() => __PaperScreenState();
+}
+
+class __PaperScreenState extends State<_PaperScreen> {
+  final _controller = PaperEditorController();
+
+  @override
+  void initState() {
+    super.initState();
+
+    final paperBloc = context.read<PaperBloc>();
+
+    Storage.token.then((token) {
+      if (token != null) {
+        _controller.config = PaperEditorConfig(
+          accessToken: token.accessToken,
+          userId: paperBloc.userId,
+          paperId: paperBloc.paperId,
+          ipfsApi: Config.ipfsApi,
+          ipfsGateway: Config.ipfsGateway,
+          collabSocketIoUri: Config.collabSocketIoUri,
+        );
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        centerTitle: false,
+        title: ValueListenableBuilder<PaperEditorValue>(
+          valueListenable: _controller,
+          builder: (context, value, _) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(value.title.blankOr('Untitled')),
+                if (value.persistence != null)
+                  Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          DateFormat().format(
+                            DateTime.fromMillisecondsSinceEpoch(
+                              value.persistence!.updatedAt,
                             ),
-                            style: Theme.of(context).textTheme.caption,
-                            overflow: TextOverflow.ellipsis,
                           ),
+                          style: Theme.of(context).textTheme.caption,
+                          overflow: TextOverflow.ellipsis,
                         ),
-                        _UpdatePaperIndicator(
-                          status: RequestStatus.success,
-                        ),
-                      ],
-                    ),
-                ],
-              ),
-            ),
-            body: FutureBuilder(
-              future: Storage.token,
-              builder: (context, AsyncSnapshot<Token?> snapshot) {
-                if (snapshot.hasError) {
-                  return Center(
-                    child: Text(snapshot.error.toString()),
-                  );
-                } else if (snapshot.data == null) {
-                  return Center(
-                    child: Text('AccessToken is required'),
-                  );
-                }
-                return paperState.status == RequestStatus.success
-                    ? _PaperEditor(
-                        accessToken: snapshot.data!.accessToken,
-                        userId: userId,
-                        paperId: paperId,
-                      )
-                    : paperState.status == RequestStatus.failure
-                        ? Center(
-                            child: Text(paperState.error.toString()),
-                          )
-                        : Center(
-                            child: CupertinoActivityIndicator(),
-                          );
-              },
-            ),
-          );
+                      ),
+                      _UpdatePaperIndicator(
+                        waiting: value.isPersistentWaiting,
+                      ),
+                    ],
+                  ),
+              ],
+            );
+          },
+        ),
+      ),
+      body: BlocConsumer<PaperBloc, PaperState>(
+        listener: (context, state) {
+          final paper = state.paper;
+          if (paper != null) {
+            _controller.value = _controller.value.copyWith(title: paper.title);
+          }
+        },
+        builder: (context, state) {
+          return state.status == RequestStatus.success
+              ? PaperEditor(
+                  controller: _controller,
+                )
+              : state.status == RequestStatus.failure
+                  ? Center(
+                      child: Text(state.error.toString()),
+                    )
+                  : Center(
+                      child: CupertinoActivityIndicator(),
+                    );
         },
       ),
     );
   }
 }
 
-class _PaperEditor extends StatefulWidget {
-  final String accessToken;
-  final String userId;
-  final String paperId;
-
-  _PaperEditor({
-    Key? key,
-    required this.accessToken,
-    required this.userId,
-    required this.paperId,
-  }) : super(key: key);
-
-  @override
-  __PaperEditorState createState() => __PaperEditorState();
-}
-
-class __PaperEditorState extends State<_PaperEditor> {
-  late final PaperEditorController _controller;
-
-  @override
-  void initState() {
-    super.initState();
-
-    _controller = PaperEditorController(
-      ipfsApi: Config.ipfsApi,
-      ipfsGateway: Config.ipfsGateway,
-      collabSocketIoUri: Config.collabSocketIoUri,
-      accessToken: widget.accessToken,
-      userId: widget.userId,
-      paperId: widget.paperId,
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return PaperEditor(
-      controller: _controller,
-    );
-  }
-}
-
 class _UpdatePaperIndicator extends StatelessWidget {
-  final RequestStatus? status;
+  final bool waiting;
 
   const _UpdatePaperIndicator({
     Key? key,
-    this.status,
+    required this.waiting,
   }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     return AnimatedSwitcher(
       duration: Duration(milliseconds: 200),
-      child: status == RequestStatus.failure
+      child: waiting
           ? Icon(
-              Icons.error,
-              color: Theme.of(context).colorScheme.error,
+              Icons.hourglass_top,
+              color: Theme.of(context).colorScheme.secondary,
               size: 14,
             )
-          : status == RequestStatus.initial
-              ? SizedBox(
-                  width: 10,
-                  height: 10,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 1,
-                  ),
-                )
-              : Icon(
-                  Icons.check,
-                  color: Theme.of(context).colorScheme.secondary,
-                  size: 14,
-                ),
+          : Icon(
+              Icons.check,
+              color: Theme.of(context).colorScheme.secondary,
+              size: 14,
+            ),
     );
   }
 }

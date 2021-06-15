@@ -5,16 +5,43 @@ import './paper_editor_native.dart'
     if (dart.library.html) './paper_editor_web.dart';
 
 class PaperEditorValue {
-  PaperEditorValue();
+  final String? title;
+  final int? version;
+  final Persistence? persistence;
 
-  PaperEditorValue copyWith() {
-    return PaperEditorValue();
+  bool get isPersistentWaiting {
+    return version != null &&
+        persistence != null &&
+        version! > persistence!.version;
+  }
+
+  PaperEditorValue({
+    this.title,
+    this.version,
+    this.persistence,
+  });
+
+  PaperEditorValue copyWith({
+    String? title,
+    int? version,
+    Persistence? persistence,
+  }) {
+    return PaperEditorValue(
+      title: title ?? this.title,
+      version: version ?? this.version,
+      persistence: persistence ?? this.persistence,
+    );
   }
 }
 
-class PaperEditorController extends ValueNotifier<PaperEditorValue> {
-  final String editorUri = '/assets/editor/index.html';
+class Persistence {
+  final int version;
+  final int updatedAt;
 
+  Persistence({required this.version, required this.updatedAt});
+}
+
+class PaperEditorConfig {
   final String accessToken;
   final String userId;
   final String paperId;
@@ -22,14 +49,40 @@ class PaperEditorController extends ValueNotifier<PaperEditorValue> {
   final String? ipfsGateway;
   final String? collabSocketIoUri;
 
-  PaperEditorController({
+  PaperEditorConfig({
     required this.accessToken,
     required this.userId,
     required this.paperId,
     this.ipfsApi,
     this.ipfsGateway,
     this.collabSocketIoUri,
-  }) : super(PaperEditorValue());
+  });
+}
+
+class PaperEditorController extends ValueNotifier<PaperEditorValue> {
+  final String editorUri = '/assets/editor/index.html';
+
+  PaperEditorConfig? _config;
+
+  set config(PaperEditorConfig? config) {
+    this._config = config;
+    this._init();
+  }
+
+  PaperEditorConfig? get config => _config;
+
+  bool _ready = false;
+
+  set ready(bool ready) {
+    this._ready = ready;
+    this._init();
+  }
+
+  bool get ready => _ready;
+
+  PaperEditorController({PaperEditorConfig? config})
+      : _config = config,
+        super(PaperEditorValue());
 
   Messager? _messager;
   set messager(Messager messager) {
@@ -37,16 +90,20 @@ class PaperEditorController extends ValueNotifier<PaperEditorValue> {
   }
 
   _init() {
+    final c = config;
+    if (!ready || c == null) {
+      return;
+    }
     _messager?.postMessage([
       'init',
       {
-        'ipfsApi': ipfsApi,
-        'ipfsGateway': ipfsGateway,
+        'ipfsApi': c.ipfsApi,
+        'ipfsGateway': c.ipfsGateway,
         'collab': {
-          'socketIoUri': collabSocketIoUri,
-          'userId': userId,
-          'paperId': paperId,
-          'accessToken': accessToken,
+          'socketIoUri': c.collabSocketIoUri,
+          'userId': c.userId,
+          'paperId': c.paperId,
+          'accessToken': c.accessToken,
         },
       },
     ]);
@@ -56,7 +113,21 @@ class PaperEditorController extends ValueNotifier<PaperEditorValue> {
     if (e is List) {
       switch (e.firstOrNull) {
         case 'ready':
-          _init();
+          ready = true;
+          break;
+        case 'change':
+          value = value.copyWith(version: e[1]['version']);
+          break;
+        case 'titleChange':
+          value = value.copyWith(title: e[1]['title']);
+          break;
+        case 'persistence':
+          value = value.copyWith(
+            persistence: Persistence(
+              version: e[1]['version'],
+              updatedAt: e[1]['updatedAt'],
+            ),
+          );
           break;
       }
     }
@@ -68,11 +139,6 @@ abstract class Messager {
 }
 
 class PaperEditor extends PaperEditorPlatform {
-  PaperEditor({
-    Key? key,
-    required PaperEditorController controller,
-  }) : super(
-          key: key,
-          controller: controller,
-        );
+  PaperEditor({Key? key, required PaperEditorController controller})
+      : super(key: key, controller: controller);
 }

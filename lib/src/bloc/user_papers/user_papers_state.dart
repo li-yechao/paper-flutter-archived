@@ -76,4 +76,18 @@ class Paper {
       user: user,
     );
   }
+
+  Paper copyWith({
+    String? updatedAt,
+    String? title,
+  }) {
+    return Paper(
+      id: id,
+      createdAt: createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      title: title ?? this.title,
+      canViewerWritePaper: canViewerWritePaper,
+      user: user,
+    );
+  }
 }

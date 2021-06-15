@@ -20,7 +20,7 @@ class PaperEditorPlatform extends StatefulWidget {
 class _PaperEditorPlatformState extends State<PaperEditorPlatform>
     implements Messager {
   final _viewType = 'paper-editor';
-  final _frame = IFrameElement();
+  WindowBase? _editorWindow;
   late final Function(Event) _messageHandler;
 
   @override
@@ -30,7 +30,7 @@ class _PaperEditorPlatformState extends State<PaperEditorPlatform>
     // ignore: undefined_prefixed_name
     ui.platformViewRegistry.registerViewFactory(
       _viewType,
-      (int viewId) => _frame
+      (int viewId) => IFrameElement()
         ..src = widget.controller.editorUri
         ..style.border = 'none',
     );
@@ -39,6 +39,7 @@ class _PaperEditorPlatformState extends State<PaperEditorPlatform>
 
     _messageHandler = (e) {
       e as MessageEvent;
+      _editorWindow = e.source as WindowBase;
       widget.controller.onMessage(e.data);
     };
     window.addEventListener('message', _messageHandler);
@@ -52,7 +53,7 @@ class _PaperEditorPlatformState extends State<PaperEditorPlatform>
 
   @override
   postMessage(e) {
-    _frame.contentWindow?.postMessage(e, '*');
+    _editorWindow?.postMessage(e, '*');
   }
 
   @override
