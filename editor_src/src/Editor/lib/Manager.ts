@@ -8,21 +8,14 @@ import Node from '../nodes/Node'
 import Extension from './Extension'
 
 export default class Manager {
-  constructor(private extensions: Extension[] = [], doc?: { [key: string]: any }) {
+  constructor(private extensions: Extension[] = [], private doc?: { [key: string]: any }) {
     this.schema = new Schema({
       nodes: this.nodeSpecs,
       marks: this.markSpecs,
     })
-
-    this.state = EditorState.create({
-      schema: this.schema,
-      doc: doc && ProsemirrorNode.fromJSON(this.schema, doc),
-      plugins: [inputRules({ rules: this.inputRules }), ...this.keymap, ...this.plugins],
-    })
   }
 
   readonly schema: Schema
-  readonly state: EditorState
 
   get nodes(): Node[] {
     return <Node[]>this.extensions.filter(i => i.type === 'node')
@@ -80,5 +73,13 @@ export default class Manager {
         }
       >{}
     )
+  }
+
+  createState() {
+    return EditorState.create({
+      schema: this.schema,
+      doc: this.doc && ProsemirrorNode.fromJSON(this.schema, this.doc),
+      plugins: [inputRules({ rules: this.inputRules }), ...this.keymap, ...this.plugins],
+    })
   }
 }

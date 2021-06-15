@@ -42,7 +42,7 @@ export default class Editor extends React.PureComponent<EditorProps> {
 
     const { manager, readOnly, dispatchTransaction } = this.props
     this.editorView = new EditorView(container, {
-      state: manager.state,
+      state: manager.createState(),
       editable: () => !readOnly,
       nodeViews: manager.nodeViews,
       dispatchTransaction,
