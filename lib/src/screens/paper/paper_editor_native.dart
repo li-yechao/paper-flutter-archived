@@ -47,11 +47,11 @@ class _PaperEditorPlatformState extends State<PaperEditorPlatform>
         ios: IOSInAppWebViewOptions(allowsInlineMediaPlayback: true),
       ),
       initialFile: initialFile,
-      onConsoleMessage: (controller, message) {
-        if (kDebugMode) {
-          print(message.message);
-        }
-      },
+      onConsoleMessage: kDebugMode
+          ? (controller, message) {
+              print(message.message);
+            }
+          : null,
       onWebViewCreated: (controller) {
         _controller = controller;
         controller.addJavaScriptHandler(
