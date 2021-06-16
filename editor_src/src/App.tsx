@@ -1,4 +1,5 @@
 import styled from '@emotion/styled'
+import { createHotkey } from '@react-hook/hotkey'
 import { collab, getVersion, receiveTransaction, sendableSteps } from 'prosemirror-collab'
 import { baseKeymap } from 'prosemirror-commands'
 import { dropCursor } from 'prosemirror-dropcursor'
@@ -64,6 +65,7 @@ export interface MessagerEmitEvents {
 
 export interface MessagerReservedEvents {
   init: (config?: Config) => void
+  save: () => void
 }
 
 export type Version = number
@@ -74,6 +76,7 @@ export type ClientID = string | number
 
 export interface CollabEmitEvents {
   transaction: (e: { version: Version; steps: DocJson[]; clientID: ClientID }) => void
+  save: () => void
 }
 
 export interface CollabListenEvents {
@@ -140,11 +143,26 @@ class _App extends React.PureComponent<{}> {
       this.collabClient.on('persistence', e => this.messager.emit('persistence', e))
     })
 
+    this.messager.on('save', this.save)
+
     this.messager.emit('ready')
+  }
+
+  componentDidMount() {
+    window.addEventListener('keydown', e => {
+      createHotkey(['mod', 's'], e => {
+        e.preventDefault()
+        this.save()
+      })(e)
+    })
   }
 
   componentWillUnmount() {
     this.messager.dispose()
+  }
+
+  private save = () => {
+    this.collabClient?.emit('save')
   }
 
   private initManager(e: { doc?: DocJson; collab?: { version: Version } }) {

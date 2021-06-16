@@ -89,6 +89,10 @@ class PaperEditorController extends ValueNotifier<PaperEditorValue> {
     _messager = messager;
   }
 
+  void save() {
+    _messager?.postMessage(['save']);
+  }
+
   _init() {
     final c = config;
     if (!ready || c == null) {

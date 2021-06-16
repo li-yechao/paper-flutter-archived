@@ -9,6 +9,7 @@ import 'package:paper/src/common/config.dart';
 import 'package:paper/src/common/storage.dart';
 import 'package:paper/src/extensions/extensions.dart';
 import 'package:paper/src/graphql/client.dart';
+import 'package:paper/src/screens/paper/save_event_listener.dart';
 
 import 'paper_editor.dart';
 
@@ -89,60 +90,66 @@ class __PaperScreenState extends State<_PaperScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        centerTitle: false,
-        title: ValueListenableBuilder<PaperEditorValue>(
-          valueListenable: _controller,
-          builder: (context, value, _) {
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(value.title.blankOr('Untitled')),
-                if (value.persistence != null)
-                  Row(
-                    children: [
-                      Flexible(
-                        child: Text(
-                          DateFormat().format(
-                            DateTime.fromMillisecondsSinceEpoch(
-                              value.persistence!.updatedAt,
+    return SaveEventListener(
+      onSave: () {
+        _controller.save();
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          centerTitle: false,
+          title: ValueListenableBuilder<PaperEditorValue>(
+            valueListenable: _controller,
+            builder: (context, value, _) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(value.title.blankOr('Untitled')),
+                  if (value.persistence != null)
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            DateFormat().format(
+                              DateTime.fromMillisecondsSinceEpoch(
+                                value.persistence!.updatedAt,
+                              ),
                             ),
+                            style: Theme.of(context).textTheme.caption,
+                            overflow: TextOverflow.ellipsis,
                           ),
-                          style: Theme.of(context).textTheme.caption,
-                          overflow: TextOverflow.ellipsis,
                         ),
-                      ),
-                      _UpdatePaperIndicator(
-                        waiting: value.isPersistentWaiting,
-                      ),
-                    ],
-                  ),
-              ],
-            );
+                        _UpdatePaperIndicator(
+                          waiting: value.isPersistentWaiting,
+                        ),
+                      ],
+                    ),
+                ],
+              );
+            },
+          ),
+        ),
+        body: BlocConsumer<PaperBloc, PaperState>(
+          listener: (context, state) {
+            final paper = state.paper;
+            if (paper != null) {
+              _controller.value =
+                  _controller.value.copyWith(title: paper.title);
+            }
+          },
+          builder: (context, state) {
+            return state.status == RequestStatus.success
+                ? PaperEditor(
+                    controller: _controller,
+                  )
+                : state.status == RequestStatus.failure
+                    ? Center(
+                        child: Text(state.error.toString()),
+                      )
+                    : Center(
+                        child: CupertinoActivityIndicator(),
+                      );
           },
         ),
-      ),
-      body: BlocConsumer<PaperBloc, PaperState>(
-        listener: (context, state) {
-          final paper = state.paper;
-          if (paper != null) {
-            _controller.value = _controller.value.copyWith(title: paper.title);
-          }
-        },
-        builder: (context, state) {
-          return state.status == RequestStatus.success
-              ? PaperEditor(
-                  controller: _controller,
-                )
-              : state.status == RequestStatus.failure
-                  ? Center(
-                      child: Text(state.error.toString()),
-                    )
-                  : Center(
-                      child: CupertinoActivityIndicator(),
-                    );
-        },
       ),
     );
   }
