@@ -69,6 +69,12 @@ export default class CodeBlock extends Node {
           render()
           return true
         },
+        setSelection: () => {
+          if (view.editable) {
+            selected = true
+            render()
+          }
+        },
         selectNode: () => {
           if (view.editable) {
             selected = true
