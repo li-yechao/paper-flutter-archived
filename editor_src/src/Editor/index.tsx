@@ -10,6 +10,7 @@ export interface EditorProps {
   autoFocus?: boolean
   manager: Manager
   dispatchTransaction?: ((this: EditorView, tr: Transaction) => void) | null
+  onInited?: (editorView: EditorView) => void
 }
 
 export default class Editor extends React.PureComponent<EditorProps> {
@@ -47,6 +48,7 @@ export default class Editor extends React.PureComponent<EditorProps> {
       nodeViews: manager.nodeViews,
       dispatchTransaction,
     })
+    this.props.onInited?.(this.editorView)
   }
 
   render() {

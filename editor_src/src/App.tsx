@@ -9,6 +9,7 @@ import { keymap } from 'prosemirror-keymap'
 import { Node } from 'prosemirror-model'
 import { Transaction } from 'prosemirror-state'
 import { Step } from 'prosemirror-transform'
+import { EditorView } from 'prosemirror-view'
 import React from 'react'
 import { createRef } from 'react'
 import { hot } from 'react-hot-loader/root'
@@ -275,6 +276,10 @@ class _App extends React.PureComponent<{}> {
     }
   }
 
+  private onEditorInited = (editorView: EditorView) => {
+    this.title = this.getDocTitle(editorView.state.doc) ?? ''
+  }
+
   private getDocTitle(doc?: Node) {
     const titleNode = doc?.firstChild?.type.name === 'title' ? doc.firstChild : undefined
     return titleNode?.textContent
@@ -293,6 +298,7 @@ class _App extends React.PureComponent<{}> {
         autoFocus
         manager={manager}
         dispatchTransaction={this.dispatchTransaction}
+        onInited={this.onEditorInited}
       />
     )
   }
