@@ -1,6 +1,3 @@
-import 'dart:io' show Platform;
-
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:paper/src/bloc/viewer/viewer_bloc.dart';
@@ -14,11 +11,7 @@ class UserButton extends StatelessWidget {
 
     return viewer != null
         ? PopupMenuButton(
-            offset: kIsWeb
-                ? Offset(0, 56)
-                : Platform.isIOS
-                    ? Offset(0, 8)
-                    : Offset.zero,
+            offset: Offset(0, 56),
             tooltip: 'User',
             child: Padding(
               padding: EdgeInsets.only(left: 10),
