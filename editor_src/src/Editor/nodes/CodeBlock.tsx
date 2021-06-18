@@ -1,21 +1,31 @@
 import styled from '@emotion/styled'
-import { editor } from 'monaco-editor'
 import { InputRule, textblockTypeInputRule } from 'prosemirror-inputrules'
-import { Node as ProsemirrorNode, NodeSpec, NodeType } from 'prosemirror-model'
+import { Node as ProsemirrorNode, NodeSpec, NodeType, Slice } from 'prosemirror-model'
+import { Plugin, Transaction } from 'prosemirror-state'
+import { ReplaceStep } from 'prosemirror-transform'
 import { EditorView } from 'prosemirror-view'
 import React, { useRef, useEffect, useCallback } from 'react'
 import ReactDOM from 'react-dom'
 import { useUpdate } from 'react-use'
+import { v4 } from 'uuid'
 import Node, { NodeViewCreator } from './Node'
 
+type Monaco = typeof import('monaco-editor').editor
+type ICodeEditor = import('monaco-editor').editor.ICodeEditor
+type EditorContentManager = import('@convergencelabs/monaco-collab-ext').EditorContentManager
+
 export default class CodeBlock extends Node {
+  constructor(public options: { clientID?: string | number } = {}) {
+    super()
+  }
+
   get name(): string {
     return 'code_block'
   }
 
   get schema(): NodeSpec {
     return {
-      attrs: { language: { default: null } },
+      attrs: { editorId: { default: null }, language: { default: null } },
       content: 'text*',
       group: 'block',
       code: true,
@@ -41,6 +51,88 @@ export default class CodeBlock extends Node {
     }
   }
 
+  private isCodeBlock(doc: ProsemirrorNode, from: number, to: number) {
+    let res: { node: ProsemirrorNode; pos: number } | undefined
+    doc.nodesBetween(from, to, (node, pos) => {
+      if (node.type.name === this.name) {
+        if (from > pos && to < pos + node.nodeSize) {
+          res = { node, pos }
+        }
+        return false
+      }
+      return
+    })
+    return res
+  }
+
+  private monacoEditorInstances = new Map<string, { contentManager: EditorContentManager }>()
+
+  get plugins(): Plugin[] {
+    return [
+      new Plugin({
+        appendTransaction: (trs, prevState, nextState) => {
+          // Ensure every CodeBlock node have a editorId attribute
+          {
+            let tr: Transaction | undefined
+            nextState.doc.descendants((node, pos) => {
+              if (node.type.name === this.name && !node.attrs.editorId) {
+                if (!tr) {
+                  tr = nextState.tr
+                }
+                tr.setNodeMarkup(pos, undefined, { ...node.attrs, editorId: v4() })
+                return false
+              }
+              return true
+            })
+            if (tr) {
+              return tr
+            }
+          }
+
+          for (const tr of trs) {
+            for (const step of tr.steps) {
+              if (step instanceof ReplaceStep) {
+                const from: number = (step as any).from
+                const to: number = (step as any).to
+                const codeBlock = this.isCodeBlock(prevState.doc, from, to)
+                if (codeBlock) {
+                  const slice: Slice = (step as any).slice
+                  const { firstChild } = slice.content
+
+                  if (
+                    slice.content.childCount === 0 ||
+                    (slice.content.childCount === 1 && firstChild?.isText)
+                  ) {
+                    const contentManager = this.monacoEditorInstances.get(
+                      codeBlock.node.attrs.editorId
+                    )?.contentManager
+
+                    if (contentManager) {
+                      const codePos = codeBlock.pos + 1
+                      const index = from - codePos
+                      const length = Math.abs(to - codePos - index)
+                      if (firstChild?.text) {
+                        if (length === 0) {
+                          contentManager.insert(index, firstChild.text)
+                        } else {
+                          contentManager.replace(index, length, firstChild.text)
+                        }
+                      } else if (length > 0) {
+                        contentManager.delete(index, length)
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+
+          return
+        },
+      }),
+    ]
+  }
+
   inputRules({ type }: { type: NodeType }): InputRule[] {
     return [
       textblockTypeInputRule(/^```([a-z]+)?\s$/, type, match => ({
@@ -51,11 +143,29 @@ export default class CodeBlock extends Node {
 
   get nodeView(): NodeViewCreator {
     return ({ node, view, getPos }) => {
+      if (typeof getPos !== 'function') {
+        throw new Error('Invalid getPos')
+      }
+
       const dom = document.createElement('div')
       let selected = false
       const render = () => {
         const C = this.component
-        ReactDOM.render(<C node={node} view={view} selected={selected} getPos={getPos} />, dom)
+        ReactDOM.render(
+          <C
+            node={node}
+            view={view}
+            selected={selected}
+            getPos={getPos}
+            clientID={this.options.clientID}
+            onInited={e => {
+              if (node.attrs.editorId) {
+                this.monacoEditorInstances.set(node.attrs.editorId, e)
+              }
+            }}
+          />,
+          dom
+        )
       }
       render()
 
@@ -102,69 +212,86 @@ const MonacoEditor = ({
   view,
   selected,
   getPos,
+  onInited,
+  clientID,
 }: {
   node: ProsemirrorNode
   view: EditorView
   selected: boolean
   getPos: boolean | (() => number)
+  onInited?: (e: { contentManager: EditorContentManager }) => void
+  clientID?: string | number
 }) => {
+  if (typeof getPos !== 'function') {
+    throw new Error('Invalid getPos')
+  }
+
   const editorContainer = useRef<HTMLDivElement>(null)
-  const MonacoEditor = useRef<typeof editor>()
-  const monacoEditor = useRef<editor.IStandaloneCodeEditor>()
+  const MonacoEditor = useRef<Monaco>()
+  const monacoEditor = useRef<ICodeEditor>()
+  const contentManager = useRef<EditorContentManager>()
   const update = useUpdate()
 
   const language = node.attrs.language || 'plaintext'
 
   useEffect(() => {
-    import('monaco-editor').then(mod => {
-      MonacoEditor.current = mod.editor
-      if (!editorContainer.current) {
-        return
-      }
-      const editor = mod.editor.create(editorContainer.current, {
-        value: node.textContent,
-        language,
-        theme: 'vs-dark',
-        automaticLayout: true,
-        minimap: {
-          enabled: false,
-        },
-        scrollbar: {
-          verticalScrollbarSize: 0,
-          horizontalScrollbarSize: 6,
-          alwaysConsumeMouseWheel: false,
-        },
-        renderWhitespace: 'all',
-        readOnly: !view.editable,
-        scrollBeyondLastLine: false,
-      })
-      monacoEditor.current = editor
-      const updateHeight = () => {
-        const contentHeight = editor.getContentHeight()
-        editor.getDomNode()!.style.height = `${contentHeight}px`
-        editor.layout({ width: editorContainer.current!.clientWidth, height: contentHeight })
-      }
-      editor.onDidContentSizeChange(updateHeight)
-      editor.onDidChangeModelContent(({ changes }) => {
-        if (typeof getPos === 'function') {
-          const start = getPos() + 1
-          let tr = view.state.tr
-          for (const change of changes) {
-            tr = tr.replaceWith(
-              start + change.rangeOffset,
-              start + change.rangeOffset + change.rangeLength,
-              change.text ? view.state.schema.text(change.text) : (null as any)
-            )
-          }
-          view.dispatch(tr)
+    Promise.all([import('monaco-editor'), import('@convergencelabs/monaco-collab-ext')]).then(
+      ([monaco, { EditorContentManager }]) => {
+        MonacoEditor.current = monaco.editor
+        if (!editorContainer.current) {
+          return
         }
-      })
-      updateHeight()
+        const editor = monaco.editor.create(editorContainer.current, {
+          value: node.textContent,
+          language,
+          theme: 'vs-dark',
+          automaticLayout: true,
+          minimap: {
+            enabled: false,
+          },
+          scrollbar: {
+            verticalScrollbarSize: 0,
+            horizontalScrollbarSize: 6,
+            alwaysConsumeMouseWheel: false,
+          },
+          renderWhitespace: 'all',
+          readOnly: !view.editable,
+          scrollBeyondLastLine: false,
+        })
+        contentManager.current = new EditorContentManager({
+          editor,
+          remoteSourceId: clientID?.toString(),
+          onInsert: (index, text) => {
+            const pos = getPos() + 1
+            view.dispatch(view.state.tr.insertText(text, pos + index))
+          },
+          onReplace: (index, length, text) => {
+            const pos = getPos() + 1
+            view.dispatch(view.state.tr.insertText(text, pos + index, pos + index + length))
+          },
+          onDelete: (index, length) => {
+            const pos = getPos() + 1
+            view.dispatch(view.state.tr.delete(pos + index, pos + index + length))
+          },
+        })
+        onInited?.({ contentManager: contentManager.current })
+        monacoEditor.current = editor
+        const updateHeight = () => {
+          const contentHeight = editor.getContentHeight()
+          editor.getDomNode()!.style.height = `${contentHeight}px`
+          editor.layout({ width: editorContainer.current!.clientWidth, height: contentHeight })
+        }
+        editor.onDidContentSizeChange(updateHeight)
+        updateHeight()
 
-      update()
-    })
+        update()
+      }
+    )
 
-    return () => monacoEditor.current?.dispose()
+    return () => {
+      contentManager.current?.dispose()
+      monacoEditor.current?.dispose()
+    }
   }, [])
 
   useEffect(() => {
@@ -190,13 +317,12 @@ const MonacoEditor = ({
   }, [language])
 
   const handleLanguageChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
-    if (typeof getPos === 'function') {
-      view.dispatch(
-        view.state.tr.setNodeMarkup(getPos(), undefined, {
-          language: e.target.value,
-        })
-      )
-    }
+    view.dispatch(
+      view.state.tr.setNodeMarkup(getPos(), undefined, {
+        ...node.attrs,
+        language: e.target.value,
+      })
+    )
   }, [])
 
   return (

@@ -75,12 +75,12 @@ export type DocJson = { [key: string]: any }
 export type ClientID = string | number
 
 export interface CollabEmitEvents {
-  transaction: (e: { version: Version; steps: DocJson[]; clientID: ClientID }) => void
+  transaction: (e: { version: Version; steps: DocJson[] }) => void
   save: () => void
 }
 
 export interface CollabListenEvents {
-  paper: (e: { version: Version; doc: DocJson }) => void
+  paper: (e: { clientID: ClientID; version: Version; doc: DocJson }) => void
   transaction: (e: { version: Version; steps: DocJson[]; clientIDs: ClientID[] }) => void
   persistence: (e: { version: Version; updatedAt: number }) => void
 }
@@ -125,8 +125,8 @@ class _App extends React.PureComponent<{}> {
 
       const { socketIoUri, accessToken, userId, paperId } = this.config.collab
       this.collabClient = io(socketIoUri, { query: { accessToken, userId, paperId } })
-      this.collabClient.on('paper', ({ version, doc }) => {
-        this.initManager({ doc, collab: { version } })
+      this.collabClient.on('paper', ({ version, doc, clientID }) => {
+        this.initManager({ doc, collab: { version, clientID } })
       })
       this.collabClient.on('transaction', ({ steps, clientIDs }) => {
         const { editorView } = this
@@ -165,7 +165,7 @@ class _App extends React.PureComponent<{}> {
     this.collabClient?.emit('save')
   }
 
-  private initManager(e: { doc?: DocJson; collab?: { version: Version } }) {
+  private initManager(e: { doc?: DocJson; collab?: { version: Version; clientID: ClientID } }) {
     const { ipfsApi, ipfsGateway } = this.config || {}
     const uploadOptions =
       ipfsApi && ipfsGateway
@@ -203,7 +203,7 @@ class _App extends React.PureComponent<{}> {
       new OrderedList(),
       new BulletList(),
       new ListItem(),
-      new CodeBlock(),
+      new CodeBlock({ clientID: e.collab?.clientID }),
 
       new Link(),
       new Bold(),
@@ -223,7 +223,7 @@ class _App extends React.PureComponent<{}> {
           history(),
           gapCursor(),
           dropCursor({ color: 'currentColor' }),
-          e.collab && collab({ version: e.collab.version }),
+          e.collab && collab({ version: e.collab.version, clientID: e.collab.clientID }),
         ].filter(notEmpty)
       ),
 
@@ -279,7 +279,6 @@ class _App extends React.PureComponent<{}> {
       collabClient.emit('transaction', {
         version: getVersion(newState),
         steps: sendable.steps,
-        clientID: sendable.clientID,
       })
     }
 
