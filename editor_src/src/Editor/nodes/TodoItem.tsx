@@ -17,6 +17,7 @@ export default class TodoItem extends Node {
       attrs: { checked: { default: false } },
       content: 'paragraph block*',
       defining: true,
+      draggable: true,
       parseDOM: [
         {
           tag: 'li[data-type="todo_item"]',
