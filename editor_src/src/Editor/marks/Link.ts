@@ -29,7 +29,7 @@ export default class Link extends Mark {
 
   inputRules({ type, schema }: { type: MarkType; schema: Schema }): InputRule[] {
     return [
-      new InputRule(/\[(.+)]\((\S+)\)/, (state, match, start, end) => {
+      new InputRule(/\[(.+)]\((https?:\/\/\S+)\)/, (state, match, start, end) => {
         const [okay, alt, href] = match
         const { tr } = state
 
@@ -37,6 +37,20 @@ export default class Link extends Mark {
           tr.replaceWith(start, end, schema.text(alt!)).addMark(
             start,
             start + alt!.length,
+            type.create({ href })
+          )
+        }
+
+        return tr
+      }),
+      new InputRule(/<(https?:\/\/\S+)>/, (state, match, start, end) => {
+        const [okay, href] = match
+        const { tr } = state
+
+        if (okay) {
+          tr.replaceWith(start, end, schema.text(href!)).addMark(
+            start,
+            start + href!.length,
             type.create({ href })
           )
         }
