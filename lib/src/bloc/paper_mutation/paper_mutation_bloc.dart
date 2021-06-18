@@ -38,19 +38,12 @@ class PaperMutationBloc extends Bloc<PaperMutationEvent, PaperMutationState> {
         MutationOptions(
           document: gql(
             r"""
-            mutation CreatePaper(
-              $userId: String!
-              $input: CreatePaperInput!
-            ) {
-              createPaper(
-                userId: $userId
-                input: $input
-              ) {
+            mutation CreatePaper($userId: String!) {
+              createPaper(userId: $userId) {
                 id
                 createdAt
                 updatedAt
                 title
-                content
                 canViewerWritePaper
 
                 user {
@@ -64,7 +57,6 @@ class PaperMutationBloc extends Bloc<PaperMutationEvent, PaperMutationState> {
           ),
           variables: {
             'userId': event.userId,
-            'input': {},
           },
         ),
       );
