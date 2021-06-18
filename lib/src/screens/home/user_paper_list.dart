@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:paper/src/bloc/paper_mutation/paper_mutation_bloc.dart';
-import 'package:paper/src/bloc/type.dart';
 import 'package:paper/src/bloc/user_papers/user_papers_bloc.dart';
 import 'package:paper/src/graphql/client.dart';
 import 'package:paper/src/widgets/scroll_load_listener/scroll_load_listener.dart';
