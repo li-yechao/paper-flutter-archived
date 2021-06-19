@@ -148,6 +148,7 @@ export default class CodeBlock extends Node {
       }
 
       const dom = document.createElement('div')
+      let stopEvent = false
       let selected = false
       const render = () => {
         const C = this.component
@@ -163,6 +164,8 @@ export default class CodeBlock extends Node {
                 this.monacoEditorInstances.set(node.attrs.editorId, e)
               }
             }}
+            onFocus={() => (stopEvent = true)}
+            onBlur={() => (stopEvent = false)}
           />,
           dom
         )
@@ -195,7 +198,7 @@ export default class CodeBlock extends Node {
           selected = false
           render()
         },
-        stopEvent: () => true,
+        stopEvent: () => stopEvent,
         ignoreMutation: () => true,
         destroy: () => {
           ReactDOM.unmountComponentAtNode(dom)
@@ -214,6 +217,8 @@ const MonacoEditor = ({
   getPos,
   onInited,
   clientID,
+  onFocus,
+  onBlur,
 }: {
   node: ProsemirrorNode
   view: EditorView
@@ -221,6 +226,8 @@ const MonacoEditor = ({
   getPos: boolean | (() => number)
   onInited?: (e: { contentManager: EditorContentManager }) => void
   clientID?: string | number
+  onFocus?: () => void
+  onBlur?: () => void
 }) => {
   if (typeof getPos !== 'function') {
     throw new Error('Invalid getPos')
@@ -282,6 +289,8 @@ const MonacoEditor = ({
           editor.layout({ width: editorContainer.current!.clientWidth, height: contentHeight })
         }
         editor.onDidContentSizeChange(updateHeight)
+        editor.onDidFocusEditorText(() => onFocus?.())
+        editor.onDidBlurEditorText(() => onBlur?.())
         updateHeight()
 
         update()
