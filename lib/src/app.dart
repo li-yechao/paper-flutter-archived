@@ -38,6 +38,7 @@ class _PaperAppState extends State<PaperApp> {
   @override
   Widget build(BuildContext context) {
     return MaterialApp.router(
+      title: 'Paper',
       theme: ThemeData(
         brightness: Brightness.light,
       ),
