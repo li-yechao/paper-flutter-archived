@@ -195,36 +195,84 @@ const _EditorContainer = styled.div`
     word-spacing: 1px;
     font-weight: bold;
     padding: 0;
+    position: relative;
+
+    &:before {
+      position: absolute;
+      font-size: 14px;
+      line-height: 0;
+      margin-left: -24px;
+      width: 24px;
+      font-weight: normal;
+      opacity: 0;
+      display: inline-block;
+      transition: all 200ms ease-in-out;
+    }
+
+    &:hover {
+      &:before {
+        opacity: 0.8;
+      }
+    }
   }
 
   h1 {
     font-size: 28px;
     line-height: 36px;
     margin: 26px 0 10px 0;
+
+    &:before {
+      content: 'H1';
+      top: 26px;
+      margin-top: -2px;
+    }
   }
 
   h2 {
     font-size: 24px;
     line-height: 32px;
     margin: 21px 0 5px 0;
+
+    &:before {
+      content: 'H2';
+      top: 21px;
+      margin-top: -2px;
+    }
   }
 
   h3 {
     font-size: 20px;
     line-height: 28px;
     margin: 16px 0 5px 0;
+
+    &:before {
+      content: 'H3';
+      top: 16px;
+    }
   }
 
   h4 {
     font-size: 16px;
     line-height: 24px;
     margin: 10px 0 5px 0;
+
+    &:before {
+      content: 'H4';
+      top: 10px;
+      margin-top: 3px;
+    }
   }
 
   h5 {
     font-size: 15px;
     line-height: 24px;
     margin: 8px 0 5px 0;
+
+    &:before {
+      content: 'H5';
+      top: 8px;
+      margin-top: 4px;
+    }
   }
 
   h6 {
@@ -232,6 +280,12 @@ const _EditorContainer = styled.div`
     line-height: 24px;
     font-weight: normal;
     margin: 8px 0 5px 0;
+
+    &:before {
+      content: 'H6';
+      top: 8px;
+      margin-top: 4px;
+    }
   }
 
   p {
