@@ -52,7 +52,13 @@ export default class Editor extends React.PureComponent<EditorProps> {
   }
 
   render() {
-    return <_EditorContainer className={this.props.className} ref={this.container} />
+    return (
+      <_EditorContainer
+        className={this.props.className}
+        ref={this.container}
+        data-editable={!this.props.readOnly}
+      />
+    )
   }
 }
 
@@ -122,6 +128,33 @@ const _EditorContainer = styled.div`
 
     li {
       margin-left: 24px;
+    }
+  }
+
+  &[data-editable='true'] {
+    ul,
+    ol {
+      li {
+        &:before {
+          background: url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3QgeD0iOCIgeT0iNyIgd2lkdGg9IjMiIGhlaWdodD0iMiIgcng9IjEiIGZpbGw9IiM0RTVDNkUiLz4KPHJlY3QgeD0iOCIgeT0iMTEiIHdpZHRoPSIzIiBoZWlnaHQ9IjIiIHJ4PSIxIiBmaWxsPSIjNEU1QzZFIi8+CjxyZWN0IHg9IjgiIHk9IjE1IiB3aWR0aD0iMyIgaGVpZ2h0PSIyIiByeD0iMSIgZmlsbD0iIzRFNUM2RSIvPgo8cmVjdCB4PSIxMyIgeT0iNyIgd2lkdGg9IjMiIGhlaWdodD0iMiIgcng9IjEiIGZpbGw9IiM0RTVDNkUiLz4KPHJlY3QgeD0iMTMiIHk9IjExIiB3aWR0aD0iMyIgaGVpZ2h0PSIyIiByeD0iMSIgZmlsbD0iIzRFNUM2RSIvPgo8cmVjdCB4PSIxMyIgeT0iMTUiIHdpZHRoPSIzIiBoZWlnaHQ9IjIiIHJ4PSIxIiBmaWxsPSIjNEU1QzZFIi8+Cjwvc3ZnPgo=');
+          content: '';
+          display: inline-block;
+          cursor: move;
+          width: 24px;
+          height: 24px;
+          position: absolute;
+          left: -40px;
+          vertical-align: text-bottom;
+          opacity: 0;
+          transition: opacity 200ms ease-in-out;
+        }
+
+        &:hover {
+          &:before {
+            opacity: 1;
+          }
+        }
+      }
     }
   }
 
