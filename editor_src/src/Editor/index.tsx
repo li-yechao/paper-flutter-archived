@@ -127,7 +127,7 @@ const _EditorContainer = styled.div`
     padding: 0;
 
     li {
-      margin-left: 24px;
+      margin-left: 32px;
     }
   }
 
@@ -143,7 +143,7 @@ const _EditorContainer = styled.div`
           width: 24px;
           height: 24px;
           position: absolute;
-          left: -40px;
+          left: -56px;
           vertical-align: text-bottom;
           opacity: 0;
           transition: opacity 200ms ease-in-out;
@@ -154,32 +154,6 @@ const _EditorContainer = styled.div`
             opacity: 1;
           }
         }
-      }
-    }
-  }
-
-  ul[data-type='todo_list'] {
-    list-style: none;
-
-    > li {
-      position: relative;
-
-      > span {
-        position: absolute;
-        margin-left: -24px;
-        left: 0;
-        top: 0;
-
-        input {
-          width: 14px;
-          height: 14px;
-          line-height: 14px;
-          vertical-align: text-bottom;
-        }
-      }
-
-      > div {
-        width: 100%;
       }
     }
   }

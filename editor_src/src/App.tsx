@@ -204,7 +204,7 @@ class _App extends React.PureComponent<{}> {
       new Heading(),
       new Blockquote(),
       new TodoList(),
-      new TodoItem(),
+      new TodoItem({ todoItemReadOnly: false }),
       new OrderedList(),
       new BulletList(),
       new ListItem(),

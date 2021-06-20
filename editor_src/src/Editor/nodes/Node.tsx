@@ -42,31 +42,43 @@ export function createReactNodeViewCreator<P>(
     view: EditorView
     getPos: () => number
     selected: boolean
-  }) => P
+  }) => P,
+  options: {
+    createDom?: () => {
+      dom?: Element
+      reactDOM?: Element
+      contentDOM?: Element
+    }
+  } = {}
 ): NodeViewCreator {
   return ({ node, view, getPos }) => {
     if (typeof getPos !== 'function') {
       throw new Error(`Invalid getPos ${getPos}`)
     }
 
+    const {
+      dom = document.createElement('div'),
+      reactDOM = document.createElement('div'),
+      contentDOM,
+    } = options.createDom?.() ?? {}
+    dom.append(reactDOM)
+    contentDOM && dom.append(contentDOM)
+
     let selected = false
 
-    const dom = document.createElement('div')
-
     const render = () => {
-      ReactDOM.render(<Component {...props({ node, view, getPos, selected })} />, dom)
+      ReactDOM.render(
+        <StylesProvider injectFirst>
+          <Component {...props({ node, view, getPos, selected })} />
+        </StylesProvider>,
+        reactDOM
+      )
     }
     render()
 
-    const selectNode = () => {
-      if (view.editable) {
-        selected = true
-        render()
-      }
-    }
-
-    return {
+    const nodeView: NodeView = {
       dom,
+      contentDOM,
       update: updatedNode => {
         if (updatedNode.type !== node.type) {
           return false
@@ -75,18 +87,28 @@ export function createReactNodeViewCreator<P>(
         render()
         return true
       },
-      setSelection: selectNode,
-      selectNode,
-      deselectNode: () => {
-        selected = false
-        render()
-      },
       stopEvent: () => true,
       ignoreMutation: () => true,
       destroy: () => {
-        ReactDOM.unmountComponentAtNode(dom)
+        ReactDOM.unmountComponentAtNode(reactDOM)
       },
     }
+
+    if (!contentDOM) {
+      nodeView.selectNode = () => {
+        if (view.editable) {
+          selected = true
+          render()
+        }
+      }
+      nodeView.setSelection = nodeView.selectNode
+      nodeView.deselectNode = () => {
+        selected = false
+        render()
+      }
+    }
+
+    return nodeView
   }
 }
 
@@ -100,11 +122,9 @@ export function lazyReactNodeView<P>(
 ): React.ComponentType<P> {
   return (p: P) => {
     return (
-      <StylesProvider injectFirst>
-        <React.Suspense fallback={fallback}>
-          <Component {...p} />
-        </React.Suspense>
-      </StylesProvider>
+      <React.Suspense fallback={fallback}>
+        <Component {...p} />
+      </React.Suspense>
     )
   }
 }

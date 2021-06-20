@@ -1,7 +1,11 @@
+import { css } from '@emotion/css'
+import styled from '@emotion/styled'
+import { Checkbox } from '@material-ui/core'
 import { Keymap } from 'prosemirror-commands'
 import { NodeSpec, NodeType } from 'prosemirror-model'
 import { splitListItem } from 'prosemirror-schema-list'
-import Node, { NodeViewCreator } from './Node'
+import React from 'react'
+import Node, { createReactNodeViewCreator, NodeViewCreator } from './Node'
 
 export default class TodoItem extends Node {
   constructor(private options: { readonly todoItemReadOnly?: boolean } = {}) {
@@ -46,45 +50,63 @@ export default class TodoItem extends Node {
   }
 
   get nodeView(): NodeViewCreator {
-    return ({ node, view, getPos }) => {
-      const listItem = document.createElement('li')
-
-      const checkboxWrapper = document.createElement('span')
-      checkboxWrapper.contentEditable = 'false'
-
-      const checkbox = document.createElement('input')
-      checkbox.type = 'checkbox'
-      if (this.options.todoItemReadOnly) {
-        checkbox.disabled = true
-      }
-      checkbox.addEventListener('change', () => {
-        if (typeof getPos === 'function') {
-          const { checked } = checkbox
-          view.dispatch(view.state.tr.setNodeMarkup(getPos(), undefined, { checked }))
+    return createReactNodeViewCreator(
+      ({
+        checked,
+        disabled,
+        onChange,
+      }: {
+        checked: boolean
+        disabled: boolean
+        onChange: (checked: boolean) => void
+      }) => {
+        return (
+          <_Checkbox
+            checked={checked}
+            disabled={disabled}
+            onChange={(e, checked) => {
+              e.target.focus()
+              onChange(checked)
+            }}
+          />
+        )
+      },
+      ({ node, view, getPos }) => {
+        return {
+          checked: node.attrs.checked,
+          disabled: this.options.todoItemReadOnly ?? true,
+          onChange: checked => {
+            view.dispatch(
+              view.state.tr.setNodeMarkup(getPos(), undefined, { ...node.attrs, checked })
+            )
+          },
         }
-      })
+      },
+      {
+        createDom: () => {
+          const dom = document.createElement('li')
+          const reactDOM = document.createElement('span')
+          reactDOM.contentEditable = 'false'
+          const contentDOM = document.createElement('div')
+          dom.classList.add(css`
+            position: relative;
+            list-style: none;
+          `)
+          reactDOM.classList.add(css`
+            position: absolute;
+            left: -32px;
+            top: 0;
+          `)
 
-      const content = document.createElement('div')
-
-      if (node.attrs.checked) {
-        checkbox.checked = true
-      }
-
-      checkboxWrapper.append(checkbox)
-      listItem.append(checkboxWrapper, content)
-
-      return {
-        dom: listItem,
-        contentDOM: content,
-        update: updatedNode => {
-          if (updatedNode.type !== node.type) {
-            return false
-          }
-
-          checkbox.checked = !!updatedNode.attrs.checked
-          return true
+          return { dom, reactDOM, contentDOM }
         },
       }
-    }
+    )
   }
 }
+
+const _Checkbox = styled(Checkbox)`
+  color: inherit !important;
+  padding: 0;
+  vertical-align: text-bottom;
+`
