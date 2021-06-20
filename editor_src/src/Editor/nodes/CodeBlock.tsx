@@ -336,9 +336,16 @@ const MonacoEditor = ({
 
   return (
     <_RootContainer>
-      <select value={language} onChange={handleLanguageChange} disabled={!view.editable}>
+      <select
+        value={language}
+        onChange={handleLanguageChange}
+        disabled={!view.editable}
+        onMouseUp={e => e.stopPropagation()}
+      >
         {LANGUAGES.map(lang => (
-          <option key={lang} label={lang} value={lang} />
+          <option key={lang} value={lang}>
+            {lang}
+          </option>
         ))}
       </select>
       <div ref={editorContainer} />
