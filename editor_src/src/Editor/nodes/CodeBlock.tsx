@@ -1,18 +1,12 @@
-import styled from '@emotion/styled'
 import { InputRule, textblockTypeInputRule } from 'prosemirror-inputrules'
 import { Node as ProsemirrorNode, NodeSpec, NodeType, Slice } from 'prosemirror-model'
 import { Plugin, Transaction } from 'prosemirror-state'
 import { ReplaceStep } from 'prosemirror-transform'
-import { EditorView } from 'prosemirror-view'
-import React, { useRef, useEffect, useCallback } from 'react'
-import ReactDOM from 'react-dom'
-import { useUpdate } from 'react-use'
+import React from 'react'
 import { v4 } from 'uuid'
-import Node, { NodeViewCreator } from './Node'
+import Node, { createReactNodeViewCreator, lazyReactNodeView, NodeViewCreator } from './Node'
 
-type Monaco = typeof import('monaco-editor').editor
-type ICodeEditor = import('monaco-editor').editor.ICodeEditor
-type EditorContentManager = import('@convergencelabs/monaco-collab-ext').EditorContentManager
+type MonacoInstance = import('../../components/MonacoEditor').MonacoInstance
 
 export default class CodeBlock extends Node {
   constructor(public options: { clientID?: string | number } = {}) {
@@ -65,7 +59,23 @@ export default class CodeBlock extends Node {
     return res
   }
 
-  private monacoEditorInstances = new Map<string, { contentManager: EditorContentManager }>()
+  private _monacoEditorInstances = new Map<string, MonacoInstance>()
+  private _checkEditorIdAttr(node: ProsemirrorNode): string {
+    const { editorId } = node.attrs
+    if (!editorId) {
+      throw new Error(`Invalid editorId ${editorId}`)
+    }
+    return editorId
+  }
+  private getMonacoEditorInstanceByNode(node: ProsemirrorNode): MonacoInstance | undefined {
+    return this._monacoEditorInstances.get(this._checkEditorIdAttr(node))
+  }
+  private setMonacoEditorInstanceByNode(node: ProsemirrorNode, instance: MonacoInstance) {
+    return this._monacoEditorInstances.set(this._checkEditorIdAttr(node), instance)
+  }
+  private deleteMonacoEditorInstanceByNode(node: ProsemirrorNode) {
+    return this._monacoEditorInstances.delete(this._checkEditorIdAttr(node))
+  }
 
   get plugins(): Plugin[] {
     return [
@@ -103,9 +113,8 @@ export default class CodeBlock extends Node {
                     slice.content.childCount === 0 ||
                     (slice.content.childCount === 1 && firstChild?.isText)
                   ) {
-                    const contentManager = this.monacoEditorInstances.get(
-                      codeBlock.node.attrs.editorId
-                    )?.contentManager
+                    const contentManager = this.getMonacoEditorInstanceByNode(codeBlock.node)
+                      ?.contentManager
 
                     if (contentManager) {
                       const codePos = codeBlock.pos + 1
@@ -142,292 +151,37 @@ export default class CodeBlock extends Node {
   }
 
   get nodeView(): NodeViewCreator {
-    return ({ node, view, getPos }) => {
-      if (typeof getPos !== 'function') {
-        throw new Error('Invalid getPos')
-      }
-
-      const dom = document.createElement('div')
-      let stopEvent = false
-      let selected = false
-      const render = () => {
-        const C = this.component
-        ReactDOM.render(
-          <C
-            node={node}
-            view={view}
-            selected={selected}
-            getPos={getPos}
-            clientID={this.options.clientID}
-            onInited={e => {
-              if (node.attrs.editorId) {
-                this.monacoEditorInstances.set(node.attrs.editorId, e)
-              }
-            }}
-            onFocus={() => (stopEvent = true)}
-            onBlur={() => (stopEvent = false)}
-          />,
-          dom
-        )
-      }
-      render()
-
-      return {
-        dom,
-        update: updatedNode => {
-          if (updatedNode.type !== node.type) {
-            return false
-          }
-          node = updatedNode
-          render()
-          return true
+    return createReactNodeViewCreator(
+      lazyReactNodeView(React.lazy(() => import('../../components/MonacoEditor'))),
+      ({ node, view, getPos, selected }) => ({
+        defaultValue: node.textContent,
+        language: node.attrs.language,
+        readOnly: !view.editable,
+        focused: selected,
+        clientID: this.options.clientID,
+        onInited: e => this.setMonacoEditorInstanceByNode(node, e),
+        onDestroyed: () => this.deleteMonacoEditorInstanceByNode(node),
+        onInsert: (index: number, text: string) => {
+          const pos = getPos() + 1
+          view.dispatch(view.state.tr.insertText(text, pos + index))
         },
-        setSelection: () => {
-          if (view.editable) {
-            selected = true
-            render()
-          }
+        onReplace: (index: number, length: number, text: string) => {
+          const pos = getPos() + 1
+          view.dispatch(view.state.tr.insertText(text, pos + index, pos + index + length))
         },
-        selectNode: () => {
-          if (view.editable) {
-            selected = true
-            render()
-          }
+        onDelete: (index: number, length: number) => {
+          const pos = getPos() + 1
+          view.dispatch(view.state.tr.delete(pos + index, pos + index + length))
         },
-        deselectNode: () => {
-          selected = false
-          render()
+        onLanguageChange: (language: string) => {
+          view.dispatch(
+            view.state.tr.setNodeMarkup(getPos(), undefined, {
+              ...node.attrs,
+              language,
+            })
+          )
         },
-        stopEvent: () => stopEvent,
-        ignoreMutation: () => true,
-        destroy: () => {
-          ReactDOM.unmountComponentAtNode(dom)
-        },
-      }
-    }
-  }
-
-  component = MonacoEditor
-}
-
-const MonacoEditor = ({
-  node,
-  view,
-  selected,
-  getPos,
-  onInited,
-  clientID,
-  onFocus,
-  onBlur,
-}: {
-  node: ProsemirrorNode
-  view: EditorView
-  selected: boolean
-  getPos: boolean | (() => number)
-  onInited?: (e: { contentManager: EditorContentManager }) => void
-  clientID?: string | number
-  onFocus?: () => void
-  onBlur?: () => void
-}) => {
-  if (typeof getPos !== 'function') {
-    throw new Error('Invalid getPos')
-  }
-
-  const editorContainer = useRef<HTMLDivElement>(null)
-  const MonacoEditor = useRef<Monaco>()
-  const monacoEditor = useRef<ICodeEditor>()
-  const contentManager = useRef<EditorContentManager>()
-  const update = useUpdate()
-
-  const language = node.attrs.language || 'plaintext'
-
-  useEffect(() => {
-    Promise.all([import('monaco-editor'), import('@convergencelabs/monaco-collab-ext')]).then(
-      ([monaco, { EditorContentManager }]) => {
-        MonacoEditor.current = monaco.editor
-        if (!editorContainer.current) {
-          return
-        }
-        const editor = monaco.editor.create(editorContainer.current, {
-          value: node.textContent,
-          language,
-          theme: 'vs-dark',
-          automaticLayout: true,
-          minimap: {
-            enabled: false,
-          },
-          scrollbar: {
-            verticalScrollbarSize: 0,
-            horizontalScrollbarSize: 6,
-            alwaysConsumeMouseWheel: false,
-          },
-          renderWhitespace: 'all',
-          readOnly: !view.editable,
-          scrollBeyondLastLine: false,
-        })
-        contentManager.current = new EditorContentManager({
-          editor,
-          remoteSourceId: clientID?.toString(),
-          onInsert: (index, text) => {
-            const pos = getPos() + 1
-            view.dispatch(view.state.tr.insertText(text, pos + index))
-          },
-          onReplace: (index, length, text) => {
-            const pos = getPos() + 1
-            view.dispatch(view.state.tr.insertText(text, pos + index, pos + index + length))
-          },
-          onDelete: (index, length) => {
-            const pos = getPos() + 1
-            view.dispatch(view.state.tr.delete(pos + index, pos + index + length))
-          },
-        })
-        onInited?.({ contentManager: contentManager.current })
-        monacoEditor.current = editor
-        const updateHeight = () => {
-          const contentHeight = editor.getContentHeight()
-          editor.getDomNode()!.style.height = `${contentHeight}px`
-          editor.layout({ width: editorContainer.current!.clientWidth, height: contentHeight })
-        }
-        editor.onDidContentSizeChange(updateHeight)
-        editor.onDidFocusEditorText(() => onFocus?.())
-        editor.onDidBlurEditorText(() => onBlur?.())
-        updateHeight()
-
-        update()
-      }
-    )
-
-    return () => {
-      contentManager.current?.dispose()
-      monacoEditor.current?.dispose()
-    }
-  }, [])
-
-  useEffect(() => {
-    if (!selected) {
-      return
-    }
-    const model = monacoEditor.current?.getModel()
-    if (monacoEditor.current && model) {
-      monacoEditor.current.focus()
-      monacoEditor.current.setPosition(model.getPositionAt(model.getValueLength()))
-    }
-  }, [selected, monacoEditor.current])
-
-  useEffect(() => {
-    monacoEditor.current?.updateOptions({ readOnly: !view.editable })
-  }, [view.editable])
-
-  useEffect(() => {
-    const model = monacoEditor.current?.getModel()
-    if (model) {
-      MonacoEditor.current?.setModelLanguage(model, language)
-    }
-  }, [language])
-
-  const handleLanguageChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
-    view.dispatch(
-      view.state.tr.setNodeMarkup(getPos(), undefined, {
-        ...node.attrs,
-        language: e.target.value,
       })
     )
-  }, [])
-
-  return (
-    <_RootContainer>
-      <select
-        value={language}
-        onChange={handleLanguageChange}
-        disabled={!view.editable}
-        onMouseUp={e => e.stopPropagation()}
-      >
-        {LANGUAGES.map(lang => (
-          <option key={lang} value={lang}>
-            {lang}
-          </option>
-        ))}
-      </select>
-      <div ref={editorContainer} />
-    </_RootContainer>
-  )
+  }
 }
-
-const _RootContainer = styled.div`
-  margin: 16px 0;
-`
-
-const LANGUAGES = [
-  'abap',
-  'aes',
-  'apex',
-  'azcli',
-  'bat',
-  'c',
-  'cameligo',
-  'clojure',
-  'coffeescript',
-  'cpp',
-  'csharp',
-  'csp',
-  'css',
-  'dart',
-  'dockerfile',
-  'ecl',
-  'fsharp',
-  'go',
-  'graphql',
-  'handlebars',
-  'hcl',
-  'html',
-  'ini',
-  'java',
-  'javascript',
-  'json',
-  'julia',
-  'kotlin',
-  'less',
-  'lexon',
-  'lua',
-  'm3',
-  'markdown',
-  'mips',
-  'msdax',
-  'mysql',
-  'objective-c',
-  'pascal',
-  'pascaligo',
-  'perl',
-  'pgsql',
-  'php',
-  'plaintext',
-  'postiats',
-  'powerquery',
-  'powershell',
-  'pug',
-  'python',
-  'r',
-  'razor',
-  'redis',
-  'redshift',
-  'restructuredtext',
-  'ruby',
-  'rust',
-  'sb',
-  'scala',
-  'scheme',
-  'scss',
-  'shell',
-  'sol',
-  'sql',
-  'st',
-  'swift',
-  'systemverilog',
-  'tcl',
-  'twig',
-  'typescript',
-  'vb',
-  'verilog',
-  'xml',
-  'yaml',
-]
