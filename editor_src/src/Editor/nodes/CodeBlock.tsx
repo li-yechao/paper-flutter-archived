@@ -1,9 +1,11 @@
+import styled from '@emotion/styled'
 import { InputRule, textblockTypeInputRule } from 'prosemirror-inputrules'
 import { Node as ProsemirrorNode, NodeSpec, NodeType, Slice } from 'prosemirror-model'
 import { Plugin, Transaction } from 'prosemirror-state'
 import { ReplaceStep } from 'prosemirror-transform'
 import React from 'react'
 import { v4 } from 'uuid'
+import CupertinoActivityIndicator from '../../components/CupertinoActivityIndicator'
 import Node, { createReactNodeViewCreator, lazyReactNodeView, NodeViewCreator } from './Node'
 
 type MonacoInstance = import('../../components/MonacoEditor').MonacoInstance
@@ -152,7 +154,12 @@ export default class CodeBlock extends Node {
 
   get nodeView(): NodeViewCreator {
     return createReactNodeViewCreator(
-      lazyReactNodeView(React.lazy(() => import('../../components/MonacoEditor'))),
+      lazyReactNodeView(
+        React.lazy(() => import('../../components/MonacoEditor')),
+        <_FallbackContainer>
+          <CupertinoActivityIndicator />
+        </_FallbackContainer>
+      ),
       ({ node, view, getPos, selected }) => ({
         defaultValue: node.textContent,
         language: node.attrs.language,
@@ -185,3 +192,20 @@ export default class CodeBlock extends Node {
     )
   }
 }
+
+const _FallbackContainer = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100px;
+  margin: 16px 0;
+  border-radius: 8px;
+  padding: 8px 0;
+  background-color: #fffffe;
+  border: 1px solid #aeaeae;
+
+  @media (prefers-color-scheme: dark) {
+    background-color: #1e1e1e;
+    border: 1px solid transparent;
+  }
+`

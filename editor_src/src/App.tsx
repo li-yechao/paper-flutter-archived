@@ -1,4 +1,5 @@
 import styled from '@emotion/styled'
+import { StylesProvider } from '@material-ui/core'
 import { createHotkey } from '@react-hook/hotkey'
 import { collab, getVersion, receiveTransaction, sendableSteps } from 'prosemirror-collab'
 import { baseKeymap } from 'prosemirror-commands'
@@ -86,7 +87,11 @@ export interface CollabListenEvents {
 }
 
 export const App = hot(() => {
-  return <_App />
+  return (
+    <StylesProvider injectFirst>
+      <_App />
+    </StylesProvider>
+  )
 })
 
 class _App extends React.PureComponent<{}> {

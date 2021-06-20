@@ -1,5 +1,6 @@
 import { EditorContentManager } from '@convergencelabs/monaco-collab-ext'
 import styled from '@emotion/styled'
+import { Select } from '@material-ui/core'
 import { editor } from 'monaco-editor'
 import React, { useRef, useEffect, useCallback } from 'react'
 import { useMountedState, useUpdate } from 'react-use'
@@ -46,10 +47,19 @@ const MonacoEditor = ({
     if (!container.current) {
       return
     }
+
+    const matchMedia = window.matchMedia('(prefers-color-scheme: dark)')
+    const getTheme = (e: { matches: boolean }) => (e.matches ? 'vs-dark' : 'vs')
+    const theme = getTheme(matchMedia)
+    const themeListener = (e: MediaQueryListEvent) => {
+      editor.setTheme(getTheme(e))
+    }
+    matchMedia.addEventListener('change', themeListener)
+
     monacoEditor.current = editor.create(container.current, {
       value: defaultValue,
       language,
-      theme: 'vs-dark',
+      theme,
       automaticLayout: true,
       minimap: {
         enabled: false,
@@ -88,6 +98,7 @@ const MonacoEditor = ({
     onInited?.({ editor: monacoEditor.current, contentManager: contentManager.current })
 
     return () => {
+      matchMedia.removeEventListener('change', themeListener)
       onDestroyed?.()
       contentManager.current?.dispose()
       monacoEditor.current?.dispose()
@@ -115,7 +126,7 @@ const MonacoEditor = ({
     model && editor.setModelLanguage(model, language || 'plaintext')
   }, [language])
 
-  const handleLanguageChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
+  const handleLanguageChange = useCallback((e: React.ChangeEvent<{ value: any }>) => {
     onLanguageChange?.(e.target.value)
   }, [])
 
@@ -123,7 +134,9 @@ const MonacoEditor = ({
 
   return (
     <_RootContainer>
-      <select
+      <_Select
+        native
+        variant="outlined"
         value={language}
         disabled={readOnly}
         onChange={handleLanguageChange}
@@ -134,7 +147,7 @@ const MonacoEditor = ({
             {lang}
           </option>
         ))}
-      </select>
+      </_Select>
       <div ref={container} />
     </_RootContainer>
   )
@@ -144,6 +157,38 @@ export default MonacoEditor
 
 const _RootContainer = styled.div`
   margin: 16px 0;
+  border-radius: 8px;
+  padding: 8px 0;
+  background-color: #fffffe;
+  border: 1px solid #aeaeae;
+
+  @media (prefers-color-scheme: dark) {
+    background-color: #1e1e1e;
+    border: 1px solid transparent;
+  }
+`
+
+const _Select = styled(Select)`
+  margin-left: 8px;
+  margin-bottom: 8px;
+  height: 32px;
+  color: inherit;
+
+  select {
+    height: 100%;
+    padding-top: 0;
+    padding-bottom: 0;
+  }
+
+  .MuiSelect-icon {
+    color: inherit;
+  }
+
+  .MuiOutlinedInput-notchedOutline {
+    color: inherit;
+    border-color: currentColor !important;
+    opacity: 0.5;
+  }
 `
 
 const LANGUAGES = [

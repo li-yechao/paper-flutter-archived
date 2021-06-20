@@ -1,4 +1,5 @@
 import styled from '@emotion/styled'
+import { StylesProvider } from '@material-ui/core'
 import { Keymap } from 'prosemirror-commands'
 import { InputRule } from 'prosemirror-inputrules'
 import { NodeSpec, Node as ProsemirrorNode, NodeType, Schema } from 'prosemirror-model'
@@ -90,19 +91,20 @@ export function createReactNodeViewCreator<P>(
 }
 
 export function lazyReactNodeView<P>(
-  Component: React.LazyExoticComponent<React.ComponentType<P>>
+  Component: React.LazyExoticComponent<React.ComponentType<P>>,
+  fallback: React.ReactNode = (
+    <_FallbackContainer>
+      <CupertinoActivityIndicator />
+    </_FallbackContainer>
+  )
 ): React.ComponentType<P> {
   return (p: P) => {
     return (
-      <React.Suspense
-        fallback={
-          <_FallbackContainer>
-            <CupertinoActivityIndicator />
-          </_FallbackContainer>
-        }
-      >
-        <Component {...p} />
-      </React.Suspense>
+      <StylesProvider injectFirst>
+        <React.Suspense fallback={fallback}>
+          <Component {...p} />
+        </React.Suspense>
+      </StylesProvider>
     )
   }
 }
