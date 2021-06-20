@@ -347,7 +347,6 @@ const MonacoEditor = ({
 }
 
 const _RootContainer = styled.div`
-  user-select: none;
   margin: 16px 0;
 `
 
