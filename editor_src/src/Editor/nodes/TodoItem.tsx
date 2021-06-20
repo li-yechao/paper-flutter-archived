@@ -100,6 +100,8 @@ export default class TodoItem extends Node {
 
           return { dom, reactDOM, contentDOM }
         },
+        stopEvent: () => false,
+        ignoreMutation: () => true,
       }
     )
   }

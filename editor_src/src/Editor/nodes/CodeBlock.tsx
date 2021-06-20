@@ -188,7 +188,11 @@ export default class CodeBlock extends Node {
             })
           )
         },
-      })
+      }),
+      {
+        stopEvent: () => true,
+        ignoreMutation: () => true,
+      }
     )
   }
 }

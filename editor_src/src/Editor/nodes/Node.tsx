@@ -49,6 +49,15 @@ export function createReactNodeViewCreator<P>(
       reactDOM?: Element
       contentDOM?: Element
     }
+    stopEvent?: (event: Event) => boolean
+    ignoreMutation?: (
+      p:
+        | MutationRecord
+        | {
+            type: 'selection'
+            target: Element
+          }
+    ) => boolean
   } = {}
 ): NodeViewCreator {
   return ({ node, view, getPos }) => {
@@ -87,8 +96,8 @@ export function createReactNodeViewCreator<P>(
         render()
         return true
       },
-      stopEvent: () => true,
-      ignoreMutation: () => true,
+      stopEvent: options.stopEvent,
+      ignoreMutation: options.ignoreMutation,
       destroy: () => {
         ReactDOM.unmountComponentAtNode(reactDOM)
       },
