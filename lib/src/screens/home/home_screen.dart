@@ -27,21 +27,23 @@ class _HomeScreenState extends State<HomeScreen> {
             if (state.status == RequestStatus.initial) {
               return Center(child: CupertinoActivityIndicator());
             }
-            return CustomScrollView(
-              physics: BouncingScrollPhysics(
-                parent: AlwaysScrollableScrollPhysics(),
-              ),
-              slivers: [
-                MySliverAppBar(
-                  title: Text('Paper'),
+            return CupertinoScrollbar(
+              child: CustomScrollView(
+                physics: BouncingScrollPhysics(
+                  parent: AlwaysScrollableScrollPhysics(),
                 ),
-                SliverFillRemaining(
-                  hasScrollBody: false,
-                  child: Center(
-                    child: Text('Welcome...'),
+                slivers: [
+                  MySliverAppBar(
+                    title: Text('Paper'),
                   ),
-                ),
-              ],
+                  SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: Center(
+                      child: Text('Welcome...'),
+                    ),
+                  ),
+                ],
+              ),
             );
           }
 
@@ -49,35 +51,38 @@ class _HomeScreenState extends State<HomeScreen> {
             userId: viewer.id,
             child: Builder(
               builder: (context) {
-                return CustomScrollView(
-                  physics: BouncingScrollPhysics(
-                    parent: AlwaysScrollableScrollPhysics(),
+                return CupertinoScrollbar(
+                  child: CustomScrollView(
+                    physics: BouncingScrollPhysics(
+                      parent: AlwaysScrollableScrollPhysics(),
+                    ),
+                    slivers: [
+                      MySliverAppBar(
+                        title: Text('Paper'),
+                      ),
+                      CupertinoSliverRefreshControl(
+                        refreshTriggerPullDistance: 100,
+                        refreshIndicatorExtent: 60,
+                        onRefresh: () async {
+                          final completer = Completer();
+
+                          final papersBloc = context.read<UserPapersBloc>();
+                          final subscription =
+                              papersBloc.stream.listen((event) {
+                            if (event.status == RequestStatus.success ||
+                                event.status == RequestStatus.failure) {
+                              completer.complete();
+                            }
+                          });
+                          papersBloc.add(UserPapersRequestNewly());
+
+                          await completer.future;
+                          subscription.cancel();
+                        },
+                      ),
+                      UserPaperList(),
+                    ],
                   ),
-                  slivers: [
-                    MySliverAppBar(
-                      title: Text('Paper'),
-                    ),
-                    CupertinoSliverRefreshControl(
-                      refreshTriggerPullDistance: 100,
-                      refreshIndicatorExtent: 60,
-                      onRefresh: () async {
-                        final completer = Completer();
-
-                        final papersBloc = context.read<UserPapersBloc>();
-                        final subscription = papersBloc.stream.listen((event) {
-                          if (event.status == RequestStatus.success ||
-                              event.status == RequestStatus.failure) {
-                            completer.complete();
-                          }
-                        });
-                        papersBloc.add(UserPapersRequestNewly());
-
-                        await completer.future;
-                        subscription.cancel();
-                      },
-                    ),
-                    UserPaperList(),
-                  ],
                 );
               },
             ),
