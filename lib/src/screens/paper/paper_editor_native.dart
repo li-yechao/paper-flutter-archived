@@ -39,7 +39,10 @@ class _PaperEditorPlatformState extends State<PaperEditorPlatform>
   Widget build(BuildContext context) {
     return InAppWebView(
       initialOptions: InAppWebViewGroupOptions(
-        crossPlatform: InAppWebViewOptions(transparentBackground: true),
+        crossPlatform: InAppWebViewOptions(
+          transparentBackground: true,
+          disableContextMenu: true,
+        ),
         ios: IOSInAppWebViewOptions(allowsInlineMediaPlayback: true),
       ),
       initialUrlRequest:
