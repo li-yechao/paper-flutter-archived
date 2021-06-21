@@ -21,10 +21,6 @@ class _PaperEditorPlatformState extends State<PaperEditorPlatform>
     implements Messager {
   InAppWebViewController? _controller;
 
-  get initialFile {
-    return widget.controller.editorUri.replaceFirst(RegExp('^/assets/'), '');
-  }
-
   @override
   void initState() {
     super.initState();
@@ -46,7 +42,8 @@ class _PaperEditorPlatformState extends State<PaperEditorPlatform>
         crossPlatform: InAppWebViewOptions(transparentBackground: true),
         ios: IOSInAppWebViewOptions(allowsInlineMediaPlayback: true),
       ),
-      initialFile: initialFile,
+      initialUrlRequest:
+          URLRequest(url: Uri.parse(widget.controller.editorUri)),
       onConsoleMessage: kDebugMode
           ? (controller, message) {
               print(message.message);

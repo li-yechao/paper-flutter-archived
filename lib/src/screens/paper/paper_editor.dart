@@ -1,4 +1,5 @@
 import 'package:flutter/widgets.dart';
+import 'package:paper/src/common/config.dart';
 import 'package:paper/src/extensions/extensions.dart';
 
 import './paper_editor_native.dart'
@@ -60,7 +61,7 @@ class PaperEditorConfig {
 }
 
 class PaperEditorController extends ValueNotifier<PaperEditorValue> {
-  final String editorUri = '/assets/editor/index.html';
+  final String editorUri = Config.editorUri;
 
   PaperEditorConfig? _config;
 

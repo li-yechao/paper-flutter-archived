@@ -30,7 +30,3 @@ flutter:
 
   assets:
     - auth/github/
-    - editor/index.html
-    - editor/fonts/
-    - editor/js/
-    - editor/static/ffmpeg-core/

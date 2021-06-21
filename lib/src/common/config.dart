@@ -17,6 +17,12 @@ class Config {
     return Uri.parse(value);
   }
 
+  static String get editorUri {
+    final uri = const String.fromEnvironment('EDITOR_URI');
+    assert(uri.isNotEmpty, 'Required env EDITOR_URI is not present');
+    return uri;
+  }
+
   static String get ipfsApi {
     final uri = const String.fromEnvironment('IPFS_API');
     assert(uri.isNotEmpty, 'Required env IPFS_API is not present');
