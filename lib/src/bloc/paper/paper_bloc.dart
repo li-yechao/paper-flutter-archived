@@ -52,6 +52,9 @@ class PaperBloc extends Bloc<PaperEvent, PaperState> {
                   updatedAt
                   title
                   canViewerWritePaper
+                  token {
+                    accessToken
+                  }
                 }
               }
             }
@@ -69,6 +72,9 @@ class PaperBloc extends Bloc<PaperEvent, PaperState> {
       final paper = Paper.fromJson(
         json: result.data!['user']['paper'],
         user: User.fromJson(result.data!['user']),
+        token: PaperToken.fromJson(
+          json: result.data!['user']['paper']['token'],
+        ),
       );
       return state.copyWith(
         status: RequestStatus.success,

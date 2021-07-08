@@ -51,6 +51,7 @@ class Paper {
   final String updatedAt;
   final String? title;
   final bool canViewerWritePaper;
+  final PaperToken? token;
 
   final User user;
 
@@ -61,11 +62,13 @@ class Paper {
     this.title,
     required this.canViewerWritePaper,
     required this.user,
+    this.token,
   });
 
   factory Paper.fromJson({
     required Map<String, dynamic> json,
     required User user,
+    PaperToken? token,
   }) {
     return Paper(
       id: json['id'],
@@ -74,6 +77,7 @@ class Paper {
       title: json['title'],
       canViewerWritePaper: json['canViewerWritePaper'],
       user: user,
+      token: token,
     );
   }
 
@@ -88,6 +92,22 @@ class Paper {
       title: title ?? this.title,
       canViewerWritePaper: canViewerWritePaper,
       user: user,
+    );
+  }
+}
+
+class PaperToken {
+  final String accessToken;
+
+  PaperToken({
+    required this.accessToken,
+  });
+
+  factory PaperToken.fromJson({
+    required Map<String, dynamic> json,
+  }) {
+    return PaperToken(
+      accessToken: json['accessToken'],
     );
   }
 }

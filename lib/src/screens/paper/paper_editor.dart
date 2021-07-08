@@ -106,7 +106,6 @@ class PaperEditorController extends ValueNotifier<PaperEditorValue> {
         'ipfsGateway': c.ipfsGateway,
         'collab': {
           'socketIoUri': c.collabSocketIoUri,
-          'userId': c.userId,
           'paperId': c.paperId,
           'accessToken': c.accessToken,
         },

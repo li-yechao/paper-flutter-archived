@@ -53,20 +53,6 @@ class __PaperScreenState extends State<_PaperScreen> {
     super.initState();
 
     _paperMutationBloc = context.read<PaperMutationBloc>();
-    final paperBloc = context.read<PaperBloc>();
-
-    Storage.token.then((token) {
-      if (token != null) {
-        _controller.config = PaperEditorConfig(
-          accessToken: token.accessToken,
-          userId: paperBloc.userId,
-          paperId: paperBloc.paperId,
-          ipfsApi: Config.ipfsApi,
-          ipfsGateway: Config.ipfsGateway,
-          collabSocketIoUri: Config.collabSocketIoUri,
-        );
-      }
-    });
 
     _controller.addListener(() {
       _changed = true;
@@ -134,6 +120,15 @@ class __PaperScreenState extends State<_PaperScreen> {
             if (paper != null) {
               _controller.value =
                   _controller.value.copyWith(title: paper.title);
+
+              _controller.config = PaperEditorConfig(
+                accessToken: paper.token!.accessToken,
+                userId: paper.user.id,
+                paperId: paper.id,
+                ipfsApi: Config.ipfsApi,
+                ipfsGateway: Config.ipfsGateway,
+                collabSocketIoUri: Config.collabSocketIoUri,
+              );
             }
           },
           builder: (context, state) {
