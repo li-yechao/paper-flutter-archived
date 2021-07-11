@@ -46,17 +46,13 @@ class PaperEditorConfig {
   final String accessToken;
   final String userId;
   final String paperId;
-  final String? ipfsApi;
-  final String? ipfsGateway;
-  final String? collabSocketIoUri;
+  final String socketUri;
 
   PaperEditorConfig({
     required this.accessToken,
     required this.userId,
     required this.paperId,
-    this.ipfsApi,
-    this.ipfsGateway,
-    this.collabSocketIoUri,
+    required this.socketUri,
   });
 }
 
@@ -102,13 +98,9 @@ class PaperEditorController extends ValueNotifier<PaperEditorValue> {
     _messager?.postMessage([
       'init',
       {
-        'ipfsApi': c.ipfsApi,
-        'ipfsGateway': c.ipfsGateway,
-        'collab': {
-          'socketIoUri': c.collabSocketIoUri,
-          'paperId': c.paperId,
-          'accessToken': c.accessToken,
-        },
+        'socketUri': c.socketUri,
+        'paperId': c.paperId,
+        'accessToken': c.accessToken,
       },
     ]);
   }

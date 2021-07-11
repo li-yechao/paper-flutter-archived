@@ -125,9 +125,7 @@ class __PaperScreenState extends State<_PaperScreen> {
                 accessToken: paper.token!.accessToken,
                 userId: paper.user.id,
                 paperId: paper.id,
-                ipfsApi: Config.ipfsApi,
-                ipfsGateway: Config.ipfsGateway,
-                collabSocketIoUri: Config.collabSocketIoUri,
+                socketUri: Config.editorSocketUri,
               );
             }
           },

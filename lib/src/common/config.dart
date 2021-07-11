@@ -23,21 +23,9 @@ class Config {
     return uri;
   }
 
-  static String get ipfsApi {
-    final uri = const String.fromEnvironment('IPFS_API');
-    assert(uri.isNotEmpty, 'Required env IPFS_API is not present');
-    return uri;
-  }
-
-  static String get ipfsGateway {
-    final uri = const String.fromEnvironment('IPFS_GATEWAY');
-    assert(uri.isNotEmpty, 'Required env IPFS_GATEWAY is not present');
-    return uri;
-  }
-
-  static String get collabSocketIoUri {
-    final uri = const String.fromEnvironment('COLLAB_SOCKET_IO_URI');
-    assert(uri.isNotEmpty, 'Required env COLLAB_SOCKET_IO_URI is not present');
+  static String get editorSocketUri {
+    final uri = const String.fromEnvironment('EDITOR_SOCKET_URI');
+    assert(uri.isNotEmpty, 'Required env EDITOR_SOCKET_URI is not present');
     return uri;
   }
 }
