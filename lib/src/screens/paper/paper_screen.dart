@@ -6,7 +6,6 @@ import 'package:paper/src/bloc/paper/paper_bloc.dart';
 import 'package:paper/src/bloc/paper_mutation/paper_mutation_bloc.dart';
 import 'package:paper/src/bloc/type.dart';
 import 'package:paper/src/common/config.dart';
-import 'package:paper/src/common/storage.dart';
 import 'package:paper/src/extensions/extensions.dart';
 import 'package:paper/src/graphql/client.dart';
 import 'package:paper/src/screens/paper/save_event_listener.dart';
