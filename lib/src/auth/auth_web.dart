@@ -40,25 +40,26 @@ class AuthPlatform {
 
     final _messageHandler = (Event event) {
       try {
-        event as MessageEvent;
-        switch (event.data['type']) {
-          case 'githubAuthResult':
-            timer.cancel();
-            w.close();
-            final uri = Uri.parse(event.data['data']);
-            final code = uri.queryParameters['code'] as String;
-            completer.complete(code);
-            break;
+        event as StorageEvent;
+        final value = event.newValue;
+
+        if (event.key == "githubAuthResult" && value != null) {
+          timer.cancel();
+          w.close();
+          final uri = Uri.parse(value);
+          final code = uri.queryParameters['code'] as String;
+          completer.complete(code);
+          window.localStorage.remove(event.key);
         }
       } catch (error) {
         completer.completeError(error);
       }
     };
 
-    window.addEventListener('message', _messageHandler);
+    window.addEventListener('storage', _messageHandler);
 
     completer.future.whenComplete(() {
-      window.removeEventListener('message', _messageHandler);
+      window.removeEventListener('storage', _messageHandler);
     });
 
     return completer.future;

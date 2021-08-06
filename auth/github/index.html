@@ -5,10 +5,8 @@
 </head>
 <body>
   <script>
-    window.opener.postMessage({
-      type: 'githubAuthResult',
-      data: window.location.href,
-    }, '*')
+    window.localStorage.setItem('githubAuthResult', window.location.href)
+    window.close()
   </script>
 </body>
 </html>
