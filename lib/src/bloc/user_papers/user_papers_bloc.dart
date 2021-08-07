@@ -162,6 +162,7 @@ class UserPapersBloc extends Bloc<UserPapersEvent, UserPapersState> {
                     updatedAt
                     title
                     canViewerWritePaper
+                    tags
                   }
                 }
               }
@@ -220,6 +221,7 @@ class UserPapersBloc extends Bloc<UserPapersEvent, UserPapersState> {
                 updatedAt
                 title
                 canViewerWritePaper
+                tags
               }
             }
           }

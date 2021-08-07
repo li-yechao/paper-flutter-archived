@@ -72,13 +72,49 @@ class PaperItem extends StatelessWidget {
       actionPane: SlidableDrawerActionPane(),
       key: Key(paper.id),
       child: ListTile(
+        minVerticalPadding: 16,
         title: Text(paper.title.blankOr('Untitled')),
-        subtitle: Text(
-          DateFormat().format(
-            DateTime.fromMillisecondsSinceEpoch(
-              int.parse(paper.updatedAt),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: EdgeInsets.symmetric(vertical: 8),
+              child: Row(
+                children: paper.tags?.map(
+                      (tag) {
+                        return Container(
+                          margin: EdgeInsets.only(right: 8),
+                          padding: EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            border: Border.all(
+                              color: Theme.of(context).accentColor,
+                            ),
+                            borderRadius: BorderRadius.circular(100),
+                          ),
+                          child: Text(
+                            tag,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Theme.of(context).accentColor,
+                            ),
+                          ),
+                        );
+                      },
+                    ).toList() ??
+                    [],
+              ),
             ),
-          ),
+            Text(
+              DateFormat().format(
+                DateTime.fromMillisecondsSinceEpoch(
+                  int.parse(paper.updatedAt),
+                ),
+              ),
+            ),
+          ],
         ),
         onTap: () {
           context.read<MyRouterDelegate>().push(MyRouteConfiguration.paper(

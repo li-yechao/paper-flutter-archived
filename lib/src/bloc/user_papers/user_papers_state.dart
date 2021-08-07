@@ -50,6 +50,7 @@ class Paper {
   final String createdAt;
   final String updatedAt;
   final String? title;
+  final List<String>? tags;
   final bool canViewerWritePaper;
   final PaperToken? token;
 
@@ -60,6 +61,7 @@ class Paper {
     required this.createdAt,
     required this.updatedAt,
     this.title,
+    this.tags,
     required this.canViewerWritePaper,
     required this.user,
     this.token,
@@ -75,6 +77,7 @@ class Paper {
       createdAt: json['createdAt'],
       updatedAt: json['updatedAt'],
       title: json['title'],
+      tags: (json['tags'] as List?)?.map((e) => e as String).toList(),
       canViewerWritePaper: json['canViewerWritePaper'],
       user: user,
       token: token,
@@ -84,12 +87,14 @@ class Paper {
   Paper copyWith({
     String? updatedAt,
     String? title,
+    List<String>? tags,
   }) {
     return Paper(
       id: id,
       createdAt: createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       title: title ?? this.title,
+      tags: tags ?? this.tags,
       canViewerWritePaper: canViewerWritePaper,
       user: user,
     );
