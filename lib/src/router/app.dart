@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:paper/src/extensions/extensions.dart';
 import 'package:paper/src/screens/auth/auth_screen.dart';
 import 'package:paper/src/screens/home/home_screen.dart';
 import 'package:paper/src/screens/error/error_screen.dart';
@@ -12,7 +13,7 @@ class MyRouterDelegate extends RouterDelegate<MyRouteConfiguration>
   List<MyRouteConfiguration> _stack = [];
 
   @override
-  MyRouteConfiguration? get currentConfiguration => _stack.last;
+  MyRouteConfiguration? get currentConfiguration => _stack.lastOrNull;
 
   @override
   Future<void> setInitialRoutePath(MyRouteConfiguration configuration) async {
