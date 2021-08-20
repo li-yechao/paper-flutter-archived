@@ -27,23 +27,21 @@ class _HomeScreenState extends State<HomeScreen> {
             if (state.status == RequestStatus.initial) {
               return Center(child: CupertinoActivityIndicator());
             }
-            return CupertinoScrollbar(
-              child: CustomScrollView(
-                physics: BouncingScrollPhysics(
-                  parent: AlwaysScrollableScrollPhysics(),
-                ),
-                slivers: [
-                  MySliverAppBar(
-                    title: Text('Paper'),
-                  ),
-                  SliverFillRemaining(
-                    hasScrollBody: false,
-                    child: Center(
-                      child: Text('Welcome...'),
-                    ),
-                  ),
-                ],
+            return CustomScrollView(
+              physics: BouncingScrollPhysics(
+                parent: AlwaysScrollableScrollPhysics(),
               ),
+              slivers: [
+                MySliverAppBar(
+                  title: Text('Paper'),
+                ),
+                SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: Center(
+                    child: Text('Welcome...'),
+                  ),
+                ),
+              ],
             );
           }
 
